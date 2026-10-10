@@ -20,6 +20,8 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
+      enum: ["VISITOR", "CURATOR", "GUIDE"],
+      default: "VISITOR",
       required: [true, "Role is required"],
     },
     isEmailVerified: {
@@ -27,11 +29,30 @@ const userSchema = new Schema(
       required: [true, "Email verification status is required"],
       default: false,
     },
+    verificationTokenHash: {
+      type: String,
+      default: null,
+    },
+    verificationTokenExpires: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordTokenHash: {
+      type: String,
+      default: null,
+    },
+    resetPasswordTokenExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+userSchema.index({ verificationTokenHash: 1 }, { sparse: true });
+userSchema.index({ resetPasswordTokenHash: 1 }, { sparse: true });
 
 export const User = model("User", userSchema);
 export default User;

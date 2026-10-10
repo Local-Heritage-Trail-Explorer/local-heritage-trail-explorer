@@ -1,5 +1,4 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import { Story } from "../models/story.model.js";
 import { Place } from "../models/place.model.js";
@@ -45,22 +44,22 @@ describe("P1 - GET /api/stories/:id", () => {
 
   it("should return approved story with related place and approved sources", async () => {
     Story.findOne = (filter) => {
-      assert.equal(filter._id, "507f1f77bcf86cd799439021");
-      assert.equal(filter.status, "approved");
+      expect(filter._id).toBe("507f1f77bcf86cd799439021");
+      expect(filter.status).toBe("approved");
       return {
         lean: async () => mockApprovedStory,
       };
     };
 
     Place.findById = (id) => {
-      assert.equal(id, "507f1f77bcf86cd799439011");
+      expect(id).toBe("507f1f77bcf86cd799439011");
       return {
         lean: async () => mockPlace,
       };
     };
 
     Source.find = (filter) => {
-      assert.equal(filter.status, "approved");
+      expect(filter.status).toBe("approved");
       return {
         lean: async () => [mockApprovedSource],
       };
@@ -68,10 +67,10 @@ describe("P1 - GET /api/stories/:id", () => {
 
     const res = await request(app).get("/api/stories/507f1f77bcf86cd799439021");
 
-    assert.equal(res.status, 200);
-    assert.equal(res.body.success, true);
-    assert.equal(res.body.error, null);
-    assert.deepEqual(res.body.data, {
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.error).toBeNull();
+    expect(res.body.data).toEqual({
       id: "507f1f77bcf86cd799439021",
       title: "The Legend of Anjanadri",
       content: "Anjanadri hill is revered as the birthplace of Lord Hanuman.",
@@ -104,7 +103,7 @@ describe("P1 - GET /api/stories/:id", () => {
 
     Source.find = (filter) => {
       // Ensure source query strictly enforces status: "approved"
-      assert.equal(filter.status, "approved");
+      expect(filter.status).toBe("approved");
       return {
         lean: async () => [mockApprovedSource],
       };
@@ -112,17 +111,17 @@ describe("P1 - GET /api/stories/:id", () => {
 
     const res = await request(app).get("/api/stories/507f1f77bcf86cd799439021");
 
-    assert.equal(res.status, 200);
-    assert.equal(res.body.data.sources.length, 1);
-    assert.equal(res.body.data.sources[0].id, "507f1f77bcf86cd799439031");
+    expect(res.status).toBe(200);
+    expect(res.body.data.sources.length).toBe(1);
+    expect(res.body.data.sources[0].id).toBe("507f1f77bcf86cd799439031");
   });
 
   it("should return HTTP 400 for malformed story ID", async () => {
     const res = await request(app).get("/api/stories/invalid-id-123");
 
-    assert.equal(res.status, 400);
-    assert.equal(res.body.success, false);
-    assert.equal(res.body.error.code, "INVALID_ID");
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("INVALID_ID");
   });
 
   it("should return HTTP 404 when story is not found or not approved", async () => {
@@ -132,9 +131,9 @@ describe("P1 - GET /api/stories/:id", () => {
 
     const res = await request(app).get("/api/stories/507f1f77bcf86cd799439099");
 
-    assert.equal(res.status, 404);
-    assert.equal(res.body.success, false);
-    assert.equal(res.body.error.code, "STORY_NOT_FOUND");
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("STORY_NOT_FOUND");
   });
 
   it("should handle unexpected database errors safely with HTTP 500", async () => {
@@ -146,8 +145,8 @@ describe("P1 - GET /api/stories/:id", () => {
 
     const res = await request(app).get("/api/stories/507f1f77bcf86cd799439021");
 
-    assert.equal(res.status, 500);
-    assert.equal(res.body.success, false);
-    assert.equal(res.body.error.code, "INTERNAL_SERVER_ERROR");
+    expect(res.status).toBe(500);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("INTERNAL_SERVER_ERROR");
   });
 });

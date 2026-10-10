@@ -1,5 +1,4 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect, afterEach } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import app from "../server.js";
@@ -21,8 +20,8 @@ describe("P0 - GET /api/health", () => {
 
     const res = await request(app).get("/api/health");
 
-    assert.equal(res.status, 200);
-    assert.deepEqual(res.body, {
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
       success: true,
       data: {
         status: "healthy",
@@ -40,8 +39,8 @@ describe("P0 - GET /api/health", () => {
 
     const res = await request(app).get("/api/health");
 
-    assert.equal(res.status, 503);
-    assert.deepEqual(res.body, {
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({
       success: false,
       data: {
         status: "unhealthy",
@@ -63,9 +62,9 @@ describe("P0 - GET /api/health", () => {
     const res = await request(app).get("/api/health");
     const responseText = JSON.stringify(res.body);
 
-    assert.equal(responseText.includes("mongodb"), false);
-    assert.equal(responseText.includes("password"), false);
-    assert.equal(responseText.includes("cluster"), false);
-    assert.equal(responseText.includes("stack"), false);
+    expect(responseText.includes("mongodb")).toBe(false);
+    expect(responseText.includes("password")).toBe(false);
+    expect(responseText.includes("cluster")).toBe(false);
+    expect(responseText.includes("stack")).toBe(false);
   });
 });

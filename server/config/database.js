@@ -133,17 +133,18 @@ const diagnoseMongoError = (error) => {
 
 /**
  * Connect to MongoDB database using Mongoose
+ * Accepts an optional uri parameter for testing with in-memory databases
  */
-export const connectDB = async () => {
-  const uri = process.env.MONGODB_URI;
+export const connectDB = async (uri) => {
+  const mongoUri = uri || process.env.MONGODB_URI || "mongodb://localhost:27017/heritage_trail_db";
 
-  if (!uri) {
+  if (!mongoUri) {
     console.warn("Notice: MONGODB_URI is not set in environment variables. Database is disconnected.");
     return;
   }
 
   // Avoid attempting connection if placeholders have not been replaced yet
-  if (uri.includes("<username>") || uri.includes("<password>")) {
+  if (mongoUri.includes("<username>") || mongoUri.includes("<password>")) {
     console.warn("Notice: MONGODB_URI contains placeholder values (<username>/<password>). Please update server/.env with your actual credentials.");
     return;
   }
@@ -152,10 +153,10 @@ export const connectDB = async () => {
   configureDns();
 
   try {
-    const conn = await mongoose.connect(uri, {
+    const conn = await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,
     });
-    console.log(`MongoDB Connected successfully to host: ${conn.connection.host}`);
+    console.log(`[Database] Connected to MongoDB: ${conn.connection.host}`);
     return conn;
   } catch (error) {
     const diagnosis = diagnoseMongoError(error);
@@ -167,6 +168,10 @@ export const connectDB = async () => {
     console.error(`Details    : ${diagnosis.explanation}`);
     console.error(`Action     : ${diagnosis.suggestion}`);
     console.error("=========================================================================\n");
+
+    if (process.env.NODE_ENV === "test") {
+      throw error;
+    }
   }
 };
 

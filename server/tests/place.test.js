@@ -1,5 +1,4 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import { Place } from "../models/place.model.js";
 import app from "../server.js";
@@ -9,6 +8,11 @@ describe("P1 - GET /api/places", () => {
 
   afterEach(() => {
     Place.find = originalFind;
+  });
+
+  // Preserve suite placeholder from main
+  it("should pass place suite placeholder", () => {
+    expect(true).toBe(true);
   });
 
   const mockPlacesData = [
@@ -122,25 +126,25 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places");
 
-    assert.equal(res.status, 200);
-    assert.equal(res.body.success, true);
-    assert.equal(res.body.error, null);
-    assert.equal(Array.isArray(res.body.data), true);
-    assert.equal(res.body.data.length, 2);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.error).toBeNull();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBe(2);
 
     // Verify filter explicitly queried status: "approved"
-    assert.equal(tracker.getFilter().status, "approved");
+    expect(tracker.getFilter().status).toBe("approved");
 
     // All returned items must have status "approved" and no _id
     for (const place of res.body.data) {
-      assert.equal(place.status, "approved");
-      assert.equal(typeof place.id, "string");
-      assert.equal(place._id, undefined);
-      assert.equal(place.__v, undefined);
+      expect(place.status).toBe("approved");
+      expect(typeof place.id).toBe("string");
+      expect(place._id).toBeUndefined();
+      expect(place.__v).toBeUndefined();
     }
 
-    assert.equal(res.body.data[0].name, "Sri Venkateswara Museum");
-    assert.equal(res.body.data[1].name, "Silathoranam");
+    expect(res.body.data[0].name).toBe("Sri Venkateswara Museum");
+    expect(res.body.data[1].name).toBe("Silathoranam");
   });
 
   it("should exclude draft, pending, and rejected records", async () => {
@@ -148,11 +152,11 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places");
 
-    assert.equal(res.status, 200);
+    expect(res.status).toBe(200);
     const names = res.body.data.map((p) => p.name);
-    assert.equal(names.includes("Draft Temple Site"), false);
-    assert.equal(names.includes("Pending Site"), false);
-    assert.equal(names.includes("Rejected Site"), false);
+    expect(names.includes("Draft Temple Site")).toBe(false);
+    expect(names.includes("Pending Site")).toBe(false);
+    expect(names.includes("Rejected Site")).toBe(false);
   });
 
   it("should filter places by theme when theme parameter is provided", async () => {
@@ -160,10 +164,10 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places?theme=art");
 
-    assert.equal(res.status, 200);
-    assert.equal(tracker.getFilter().themes, "art");
-    assert.equal(res.body.data.length, 1);
-    assert.equal(res.body.data[0].name, "Sri Venkateswara Museum");
+    expect(res.status).toBe(200);
+    expect(tracker.getFilter().themes).toBe("art");
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.data[0].name).toBe("Sri Venkateswara Museum");
   });
 
   it("should return an empty array if no approved places match", async () => {
@@ -171,8 +175,8 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places?theme=nonexistent");
 
-    assert.equal(res.status, 200);
-    assert.deepEqual(res.body, {
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
       success: true,
       data: [],
       error: null,
@@ -184,11 +188,11 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places?page=2&limit=1");
 
-    assert.equal(res.status, 200);
-    assert.equal(tracker.getSkip(), 1);
-    assert.equal(tracker.getLimit(), 1);
-    assert.equal(res.body.data.length, 1);
-    assert.equal(res.body.data[0].name, "Silathoranam");
+    expect(res.status).toBe(200);
+    expect(tracker.getSkip()).toBe(1);
+    expect(tracker.getLimit()).toBe(1);
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.data[0].name).toBe("Silathoranam");
   });
 
   it("should reject invalid page parameter with HTTP 400", async () => {
@@ -196,9 +200,9 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places?page=0");
 
-    assert.equal(res.status, 400);
-    assert.equal(res.body.success, false);
-    assert.equal(res.body.error.code, "VALIDATION_ERROR");
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("should reject negative or non-numeric limit with HTTP 400", async () => {
@@ -206,9 +210,9 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places?limit=abc");
 
-    assert.equal(res.status, 400);
-    assert.equal(res.body.success, false);
-    assert.equal(res.body.error.code, "VALIDATION_ERROR");
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("should reject limit exceeding maximum (100) with HTTP 400", async () => {
@@ -216,9 +220,9 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places?limit=150");
 
-    assert.equal(res.status, 400);
-    assert.equal(res.body.success, false);
-    assert.equal(res.body.error.code, "VALIDATION_ERROR");
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("should handle database errors gracefully with HTTP 500", async () => {
@@ -241,9 +245,9 @@ describe("P1 - GET /api/places", () => {
 
     const res = await request(app).get("/api/places");
 
-    assert.equal(res.status, 500);
-    assert.equal(res.body.success, false);
-    assert.equal(res.body.error.code, "INTERNAL_SERVER_ERROR");
-    assert.equal(res.body.error.message, "Simulated database failure");
+    expect(res.status).toBe(500);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("INTERNAL_SERVER_ERROR");
+    expect(res.body.error.message).toBe("Simulated database failure");
   });
 });

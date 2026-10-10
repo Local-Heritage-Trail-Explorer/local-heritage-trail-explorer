@@ -27,27 +27,41 @@ export const notFoundHandler = (req, res) => {
  * Centralized error handling middleware
  */
 export const errorHandler = (err, req, res, next) => {
+  console.error(`[Global Error Handler] ${err.stack || err.message || err}`);
+
+  // Handle MongoDB duplicate key error (E11000)
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0] || "field";
+    return res.status(409).json({
+      success: false,
+      data: null,
+      error: {
+        code: "DUPLICATE_ENTRY",
+        message: `An account or record with this ${field} already exists.`,
+      },
+    });
+  }
+
   // Check if error is caused by MongoDB being disconnected or unreachable
   const isDbUnavailableError =
     err.name === "MongoNetworkError" ||
     err.name === "MongooseServerSelectionError" ||
     (err.name === "MongooseError" && typeof err.message === "string" && err.message.includes("buffering timed out"));
 
-  const status = isDbUnavailableError ? 503 : err.status || err.statusCode || 500;
-  const code = isDbUnavailableError
+  const statusCode = isDbUnavailableError ? 503 : err.statusCode || err.status || 500;
+  const errorCode = isDbUnavailableError
     ? "DATABASE_UNAVAILABLE"
-    : err.code || (status === 404 ? "NOT_FOUND" : status === 400 ? "BAD_REQUEST" : "INTERNAL_SERVER_ERROR");
+    : err.code || (statusCode === 404 ? "NOT_FOUND" : statusCode === 400 ? "BAD_REQUEST" : "INTERNAL_SERVER_ERROR");
 
-  // Safe message that does not expose internal secrets or stack traces
   const message = isDbUnavailableError
     ? "Database connection is unavailable."
-    : err.message || "An unexpected error occurred.";
+    : err.message || "An unexpected internal server error occurred.";
 
-  res.status(status).json({
+  res.status(statusCode).json({
     success: false,
     data: null,
     error: {
-      code,
+      code: errorCode,
       message,
     },
   });
