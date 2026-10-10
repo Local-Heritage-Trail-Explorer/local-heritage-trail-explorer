@@ -1,1 +1,0 @@
-# local-heritage-trail-explorer
