@@ -9,8 +9,8 @@ export const configureSession = (customStore) => {
   let store;
   if (customStore) {
     store = customStore;
-  } else if (process.env.NODE_ENV === "test" && !process.env.MONGODB_URI) {
-    // MemoryStore for isolated unit/integration testing if Mongo URI not provided
+  } else if (process.env.NODE_ENV === "test") {
+    // MemoryStore for isolated unit/integration testing
     store = new session.MemoryStore();
   } else {
     store = MongoStore.create({

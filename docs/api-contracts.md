@@ -297,14 +297,172 @@ In line with the data schema defined by Team 3, records must have `status: "appr
 
 ---
 
-## 5. Error Code Reference
+---
+
+## 5. P3 — Trail Management APIs
+
+### `POST /api/trails`
+- **Purpose:** Create and save a new private trail for the authenticated user.
+- **Authentication:** Required (User Session)
+- **CSRF Token:** Required (`x-csrf-token`)
+- **Request Body:**
+```json
+{
+  "title": "Sacred Hills Heritage Trail",
+  "theme": "spiritual",
+  "stops": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
+  "estimatedMinutes": 75
+}
+```
+- **Response (HTTP 201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "507f1f77bcf86cd799439041",
+    "ownerId": "507f1f77bcf86cd799439091",
+    "title": "Sacred Hills Heritage Trail",
+    "theme": "spiritual",
+    "stops": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
+    "estimatedMinutes": 75,
+    "status": "active",
+    "visibility": "private"
+  },
+  "error": null
+}
+```
+
+### `GET /api/trails/mine`
+- **Purpose:** List trails created by and belonging to the authenticated user.
+- **Authentication:** Required (User Session)
+- **Query Parameters:** `page` (default 1), `limit` (default 10)
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "507f1f77bcf86cd799439041",
+      "ownerId": "507f1f77bcf86cd799439091",
+      "title": "Sacred Hills Heritage Trail",
+      "theme": "spiritual",
+      "stops": ["507f1f77bcf86cd799439011"],
+      "estimatedMinutes": 75,
+      "status": "active",
+      "visibility": "private"
+    }
+  ],
+  "error": null
+}
+```
+
+### `GET /api/trails/:id`
+- **Purpose:** Retrieve trail details by ID. Private trails require authentication and ownership verification.
+- **Authentication:** Required for private trails; Public trails viewable without auth.
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "507f1f77bcf86cd799439041",
+    "ownerId": "507f1f77bcf86cd799439091",
+    "title": "Sacred Hills Heritage Trail",
+    "theme": "spiritual",
+    "stops": ["507f1f77bcf86cd799439011"],
+    "stopDetails": [
+      {
+        "id": "507f1f77bcf86cd799439011",
+        "name": "Sri Venkateswara Museum",
+        "zone": "Tirumala Up-Hill",
+        "estimatedVisitMinutes": 30
+      }
+    ],
+    "visibility": "private"
+  },
+  "error": null
+}
+```
+
+### `PATCH /api/trails/:id/progress`
+- **Purpose:** Track visit progress on a trail stop for the trail owner.
+- **Authentication:** Required (Trail Owner)
+- **CSRF Token:** Required (`x-csrf-token`)
+- **Request Body:**
+```json
+{
+  "placeId": "507f1f77bcf86cd799439011"
+}
+```
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "trailId": "507f1f77bcf86cd799439041",
+    "userId": "507f1f77bcf86cd799439091",
+    "completedPlaceIds": ["507f1f77bcf86cd799439011"],
+    "visitTimestamps": [
+      {
+        "placeId": "507f1f77bcf86cd799439011",
+        "visitedAt": "2026-10-14T23:00:00.000Z"
+      }
+    ],
+    "totalStops": 2,
+    "completedCount": 1,
+    "isComplete": false
+  },
+  "error": null
+}
+```
+
+---
+
+## 6. P4 — Curator Management & Corrections APIs
+
+All `/api/curator/*` endpoints require authentication with role `CURATOR`.
+
+### Places
+- `POST /api/curator/places`: Create a place record (`status: "draft" | "pending" | "approved"`).
+- `GET /api/curator/places`: List all places (supports `?status=`, `page`, `limit`).
+- `PATCH /api/curator/places/:id`: Update existing place details or publication status.
+
+### Sources
+- `POST /api/curator/sources`: Create source metadata (requires `title`, `attribution`, `sourceType`, and either `url` or `filePath`).
+- `GET /api/curator/sources`: List sources across all statuses.
+- `PATCH /api/curator/sources/:id`: Update source metadata.
+- `PATCH /api/curator/sources/:id/review`: Review source (`{ "status": "approved" | "rejected", "notes": "..." }`), creates `EditorialReview`.
+
+### Stories
+- `POST /api/curator/stories`: Create story referencing verified `placeId` and `sourceIds`.
+- `GET /api/curator/stories`: List stories (supports `?status=`, `?placeId=`, `page`, `limit`).
+- `PATCH /api/curator/stories/:id`: Update story details.
+- `PATCH /api/curator/stories/:id/review`: Review story (`{ "status": "approved" | "rejected", "notes": "..." }`), creates `EditorialReview`.
+
+### Corrections
+- `POST /api/corrections`: Submit a correction for a heritage place (Authenticated User, role `VISITOR` or `CURATOR`).
+- `GET /api/curator/corrections`: List pending corrections for curator review.
+- `GET /api/curator/corrections/:id`: Retrieve single correction details with place and submitter info.
+- `PATCH /api/curator/corrections/:id/review`: Approve or reject correction (`{ "status": "approved" | "rejected" }`), sets `reviewedBy` and creates `EditorialReview`.
+
+---
+
+## 7. Error Code Reference
 
 | Error Code | HTTP Status | Description |
 |---|---|---|
 | `DATABASE_UNAVAILABLE` | 503 | MongoDB is disconnected or unreachable during health check. |
-| `VALIDATION_ERROR` | 400 | Query parameters failed Zod schema validation (e.g. non-numeric limit or page < 1). |
+| `VALIDATION_ERROR` | 400 | Request body or parameters failed Zod schema validation. |
 | `INVALID_ID` | 400 | The provided `:id` parameter is not a 24-character hex MongoDB ObjectId. |
-| `STORY_NOT_FOUND` | 404 | The requested story does not exist or its status is not `approved`. |
-| `SOURCE_NOT_FOUND` | 404 | The requested source does not exist or its status is not `approved`. |
+| `INVALID_PLACE_REFERENCE`| 400 | One or more referenced places do not exist. |
+| `INVALID_SOURCE_REFERENCE`| 400 | One or more referenced sources do not exist. |
+| `INVALID_STOP` | 400 | The specified stop does not belong to the trail. |
+| `UNAUTHORIZED` | 401 | Authentication is required (missing or expired session). |
+| `FORBIDDEN` | 403 | Authenticated user lacks permission (non-owner or non-curator). |
+| `EBADCSRFTOKEN` | 403 | Missing or invalid CSRF token on mutating request. |
+| `TRAIL_NOT_FOUND` | 404 | The requested trail does not exist. |
+| `PLACE_NOT_FOUND` | 404 | The requested place does not exist. |
+| `STORY_NOT_FOUND` | 404 | The requested story does not exist or is unapproved for public browsing. |
+| `SOURCE_NOT_FOUND` | 404 | The requested source does not exist or is unapproved for public browsing. |
+| `CORRECTION_NOT_FOUND` | 404 | The requested correction record does not exist. |
 | `ROUTE_NOT_FOUND` | 404 | The requested route does not exist on this server. |
 | `INTERNAL_SERVER_ERROR` | 500 | An unhandled operational or database exception occurred. |
