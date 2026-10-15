@@ -9,6 +9,7 @@ import csrfProtection from "./middlewares/csrf.middleware.js";
 import errorHandler from "./middlewares/error.middleware.js";
 
 import authRouter from "./api/auth.router.js";
+import chatRouter from "./api/chat.router.js";
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ export const createApp = (sessionStore) => {
 
   // 4. API Routes
   app.use("/api/auth", authRouter);
+  app.use("/api/chat", chatRouter);
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {
