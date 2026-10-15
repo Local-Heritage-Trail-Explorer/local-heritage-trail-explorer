@@ -5,43 +5,179 @@ import { useAuth } from "../context/AuthContext.jsx";
 export const HomePage = () => {
   const { user } = useAuth();
 
+  const sections = [
+    {
+      title: "Heritage Places",
+      description:
+        "Explore historic temples, landmarks, and important places around Tirumala and Tirupati.",
+      link: "/places",
+      button: "Explore Places",
+    },
+    {
+      title: "Heritage Stories",
+      description:
+        "Discover the history, traditions, and stories connected to local heritage.",
+      link: "/stories",
+      button: "Read Stories",
+    },
+    {
+      title: "Trail Planner",
+      description:
+        "Explore the idea of planning a heritage trail around the places you want to visit.",
+      link: "/trail-planner",
+      button: "Plan a Trail",
+    },
+  ];
+
   return (
-    <div style={{ maxWidth: "800px", margin: "2rem auto", padding: "2rem", fontFamily: "sans-serif", lineHeight: "1.6" }}>
-      <header style={{ textAlign: "center", marginBottom: "3rem" }}>
-        <h1 style={{ color: "#2c5282", fontSize: "2.5rem" }}>Explore Tirumala Heritage Trails</h1>
-        <p style={{ fontSize: "1.2rem", color: "#4a5568" }}>
-          Discover ancient temples, sacred paths, and rich historical stories of the sacred Tirumala hills.
+    <div
+      style={{
+        maxWidth: "1100px",
+        margin: "0 auto",
+        padding: "40px 24px",
+        fontFamily: "Arial, sans-serif",
+        color: "#24352b",
+        lineHeight: "1.6",
+      }}
+    >
+      <header
+        style={{
+          textAlign: "center",
+          padding: "35px 15px",
+          marginBottom: "30px",
+          backgroundColor: "#f1f5ed",
+          borderRadius: "8px",
+        }}
+      >
+        <p
+          style={{
+            color: "#54745b",
+            fontWeight: "bold",
+            marginBottom: "8px",
+          }}
+        >
+          LOCAL HERITAGE TRAIL EXPLORER
         </p>
+
+        <h1 style={{ fontSize: "clamp(28px, 5vw, 42px)", margin: "10px 0" }}>
+          Explore India's Local Heritage
+        </h1>
+
+        <p
+          style={{
+            maxWidth: "680px",
+            margin: "0 auto 22px",
+            color: "#526157",
+            fontSize: "17px",
+          }}
+        >
+          "Explore historic temples, landmarks, and important places across India."
+        </p>
+
+        <Link
+          to="/places"
+          style={{
+            display: "inline-block",
+            backgroundColor: "#355e3b",
+            color: "white",
+            padding: "11px 22px",
+            borderRadius: "5px",
+            textDecoration: "none",
+            fontWeight: "bold",
+          }}
+        >
+          Start Exploring
+        </Link>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.5rem" }}>
-        <div style={{ padding: "1.5rem", border: "1px solid #e2e8f0", borderRadius: "8px", background: "#f7fafc" }}>
-          <h3>Public Places</h3>
-          <p>Browse documented heritage locations around Tirumala and Tirupati.</p>
-          <Link to="/places" style={{ color: "#3182ce", fontWeight: "bold" }}>Explore Places →</Link>
-        </div>
+      <section>
+        <h2 style={{ textAlign: "center", marginBottom: "8px" }}>
+          Explore the Project
+        </h2>
 
-        <div style={{ padding: "1.5rem", border: "1px solid #e2e8f0", borderRadius: "8px", background: "#f7fafc" }}>
-          <h3>Heritage Stories</h3>
-          <p>Read verified historical stories linked to sacred places and sources.</p>
-          <Link to="/stories" style={{ color: "#3182ce", fontWeight: "bold" }}>Read Stories →</Link>
-        </div>
+        <p
+          style={{
+            textAlign: "center",
+            color: "#647067",
+            marginBottom: "25px",
+          }}
+        >
+          Choose where you would like to begin.
+        </p>
 
-        <div style={{ padding: "1.5rem", border: "1px solid #e2e8f0", borderRadius: "8px", background: "#f7fafc" }}>
-          <h3>Trail Planner</h3>
-          <p>Plan custom heritage walking trails based on visiting hours and themes.</p>
-          <Link to="/trail-planner" style={{ color: "#3182ce", fontWeight: "bold" }}>Plan Trail →</Link>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+            gap: "20px",
+          }}
+        >
+          {sections.map((section) => (
+            <article
+              key={section.title}
+              style={{
+                padding: "22px",
+                border: "1px solid #dce4dc",
+                borderRadius: "7px",
+                backgroundColor: "#ffffff",
+              }}
+            >
+              <h3 style={{ marginTop: "0", color: "#355e3b" }}>
+                {section.title}
+              </h3>
+
+              <p style={{ color: "#526157", minHeight: "75px" }}>
+                {section.description}
+              </p>
+
+              <Link
+                to={section.link}
+                style={{
+                  color: "#355e3b",
+                  fontWeight: "bold",
+                  textDecoration: "none",
+                }}
+              >
+                {section.button} →
+              </Link>
+            </article>
+          ))}
         </div>
-      </div>
+      </section>
 
       {!user && (
-        <div style={{ marginTop: "3rem", padding: "1.5rem", background: "#ebf8ff", borderRadius: "8px", textAlign: "center" }}>
-          <h3>Save Your Heritage Journeys</h3>
-          <p>Create a free Visitor account to save custom trails, track progress, and contribute factual corrections.</p>
-          <Link to="/signup" style={{ background: "#3182ce", color: "#fff", padding: "0.6rem 1.2rem", borderRadius: "4px", textDecoration: "none", fontWeight: "bold" }}>
+        <section
+          style={{
+            marginTop: "35px",
+            padding: "25px",
+            backgroundColor: "#f7f7f2",
+            border: "1px solid #e1e5d9",
+            borderRadius: "7px",
+            textAlign: "center",
+          }}
+        >
+          <h2 style={{ marginTop: "0" }}>Save Your Heritage Journeys</h2>
+
+          <p style={{ color: "#526157" }}>
+            Create a visitor account to get started with saving trails and
+            tracking your heritage journeys.
+          </p>
+
+          <Link
+            to="/signup"
+            style={{
+              display: "inline-block",
+              backgroundColor: "#355e3b",
+              color: "#ffffff",
+              padding: "10px 20px",
+              borderRadius: "5px",
+              textDecoration: "none",
+              fontWeight: "bold",
+            }}
+          >
             Sign Up as Visitor
           </Link>
-        </div>
+        </section>
       )}
     </div>
   );
