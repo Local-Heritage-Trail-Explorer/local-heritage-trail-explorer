@@ -253,4 +253,57 @@ router.patch("/feedback/:id/review", validateParams(idParamSchema), validate(rev
   }
 });
 
+// ==========================================
+// 6. TRAIL / GUIDE PUBLICATION REVIEW
+// ==========================================
+
+const handleGetCuratorTrails = async (req, res, next) => {
+  try {
+    const { status, page, limit } = req.query;
+    const trails = await curatorService.getCuratorTrails({ status, page, limit });
+    return res.status(200).json({
+      success: true,
+      data: trails,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const handleGetCuratorTrailById = async (req, res, next) => {
+  try {
+    const trail = await curatorService.getCuratorTrailById(req.params.id);
+    return res.status(200).json({
+      success: true,
+      data: trail,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const handleReviewTrail = async (req, res, next) => {
+  try {
+    const result = await curatorService.reviewTrail(req.params.id, req.body, req.user._id);
+    return res.status(200).json({
+      success: true,
+      data: result,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+router.get("/trails", validateQuery(curatorListQuerySchema), handleGetCuratorTrails);
+router.get("/guides", validateQuery(curatorListQuerySchema), handleGetCuratorTrails);
+
+router.get("/trails/:id", validateParams(idParamSchema), handleGetCuratorTrailById);
+router.get("/guides/:id", validateParams(idParamSchema), handleGetCuratorTrailById);
+
+router.patch("/trails/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewTrail);
+router.patch("/guides/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewTrail);
+
 export default router;

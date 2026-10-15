@@ -2,6 +2,7 @@ import { Place } from "../models/place.model.js";
 import { Source } from "../models/source.model.js";
 import { Story } from "../models/story.model.js";
 import { Correction } from "../models/correction.model.js";
+import { Trail } from "../models/trail.model.js";
 import { TrailFeedback } from "../models/trail-feedback.model.js";
 import { EditorialReview } from "../models/editorial-review.model.js";
 import { ApiError } from "../middlewares/error.middleware.js";
@@ -541,6 +542,149 @@ export const reviewFeedback = async (id, { status, notes }, reviewerId) => {
   };
 };
 
+// ==========================================
+// 6. GUIDE / TRAIL PUBLICATION REVIEW
+// ==========================================
+
+export const getCuratorTrails = async ({ status = "pending_review", page = 1, limit = 10 } = {}) => {
+  const filter = {};
+  if (status) {
+    filter.status = status;
+  }
+
+  const skip = (page - 1) * limit;
+  const trails = await Trail.find(filter)
+    .populate("ownerId", "name email role")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  return trails.map((t) => ({
+    id: t._id.toString(),
+    title: t.title,
+    theme: t.theme,
+    stops: t.stops,
+    estimatedMinutes: t.estimatedMinutes,
+    status: t.status,
+    visibility: t.visibility,
+    owner: t.ownerId
+      ? {
+          id: t.ownerId._id?.toString() || t.ownerId.toString(),
+          name: t.ownerId.name,
+          email: t.ownerId.email,
+          role: t.ownerId.role,
+        }
+      : null,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  }));
+};
+
+export const getCuratorTrailById = async (id) => {
+  const trail = await Trail.findById(id)
+    .populate("ownerId", "name email role")
+    .lean();
+
+  if (!trail) {
+    throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
+  }
+
+  const places = await Place.find({ _id: { $in: trail.stops } }).lean();
+  const placeMap = new Map(places.map((p) => [p._id.toString(), p]));
+
+  const populatedStops = trail.stops.map((stopId) => {
+    const p = placeMap.get(stopId.toString());
+    return p
+      ? { id: p._id.toString(), name: p.name, zone: p.zone, status: p.status }
+      : { id: stopId.toString() };
+  });
+
+  return {
+    id: trail._id.toString(),
+    title: trail.title,
+    theme: trail.theme,
+    stops: trail.stops,
+    stopDetails: populatedStops,
+    estimatedMinutes: trail.estimatedMinutes,
+    status: trail.status,
+    visibility: trail.visibility,
+    owner: trail.ownerId
+      ? {
+          id: trail.ownerId._id?.toString() || trail.ownerId.toString(),
+          name: trail.ownerId.name,
+          email: trail.ownerId.email,
+          role: trail.ownerId.role,
+        }
+      : null,
+    createdAt: trail.createdAt,
+    updatedAt: trail.updatedAt,
+  };
+};
+
+export const reviewTrail = async (id, { status, notes }, reviewerId) => {
+  const trail = await Trail.findById(id);
+  if (!trail) {
+    throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
+  }
+
+  // Enforce legitimate state transitions
+  if (trail.status !== "pending_review" && trail.status !== "pending") {
+    throw new ApiError(
+      400,
+      "INVALID_STATE_TRANSITION",
+      `Cannot review trail with status '${trail.status}'. Only trails with status 'pending_review' can be reviewed.`
+    );
+  }
+
+  if (status === "approved") {
+    // Verify all stops are approved before public publication
+    const places = await Place.find({ _id: { $in: trail.stops } }).lean();
+    const placeMap = new Map(places.map((p) => [p._id.toString(), p]));
+
+    for (const stopId of trail.stops) {
+      const p = placeMap.get(stopId.toString());
+      if (!p || p.status !== "approved") {
+        throw new ApiError(
+          400,
+          "INELIGIBLE_TRAIL_RESOURCES",
+          "Cannot approve trail containing unapproved heritage places."
+        );
+      }
+    }
+
+    trail.status = "published";
+    trail.visibility = "public";
+  } else if (status === "rejected") {
+    trail.status = "rejected";
+    trail.visibility = "private";
+  }
+
+  await trail.save();
+
+  const review = await EditorialReview.create({
+    resourceId: trail._id,
+    resourceType: "Trail",
+    reviewedBy: reviewerId,
+    decision: status,
+  });
+
+  return {
+    trail: {
+      id: trail._id.toString(),
+      title: trail.title,
+      status: trail.status,
+      visibility: trail.visibility,
+    },
+    review: {
+      id: review._id.toString(),
+      decision: review.decision,
+      reviewedBy: reviewerId.toString(),
+      createdAt: review.createdAt,
+    },
+  };
+};
+
 export default {
   createPlace,
   getCuratorPlaces,
@@ -558,4 +702,7 @@ export default {
   reviewCorrection,
   getCuratorFeedback,
   reviewFeedback,
+  getCuratorTrails,
+  getCuratorTrailById,
+  reviewTrail,
 };

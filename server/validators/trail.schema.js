@@ -28,6 +28,7 @@ export const createTrailSchema = z.object({
  * Validation schema for listing user trails query parameters (GET /api/trails/mine)
  */
 export const trailQuerySchema = z.object({
+  theme: z.string().trim().optional(),
   page: z.coerce
     .number({ invalid_type_error: "Page must be a valid number" })
     .int("Page must be an integer")

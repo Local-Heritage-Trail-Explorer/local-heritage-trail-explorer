@@ -2,6 +2,7 @@ import { Trail } from "../models/trail.model.js";
 import { Place } from "../models/place.model.js";
 import { VisitProgress } from "../models/visit-progress.model.js";
 import { TrailFeedback } from "../models/trail-feedback.model.js";
+import { EditorialReview } from "../models/editorial-review.model.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 
 /**
@@ -283,6 +284,113 @@ export const updateTrailFeedback = async ({ trailId, feedbackId, userId, descrip
   };
 };
 
+/**
+ * Retrieve all approved published trails for public browsing
+ */
+export const getPublishedTrails = async ({ theme, page = 1, limit = 10 } = {}) => {
+  const filter = {
+    status: "published",
+    visibility: "public",
+  };
+  if (theme) {
+    filter.theme = theme;
+  }
+
+  const skip = (page - 1) * limit;
+  const trails = await Trail.find(filter)
+    .populate("ownerId", "name")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  return trails.map((t) => ({
+    id: t._id.toString(),
+    title: t.title,
+    theme: t.theme,
+    stops: t.stops,
+    estimatedMinutes: t.estimatedMinutes,
+    status: t.status,
+    visibility: t.visibility,
+    author: t.ownerId
+      ? {
+          id: t.ownerId._id?.toString() || t.ownerId.toString(),
+          name: t.ownerId.name,
+        }
+      : null,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  }));
+};
+
+/**
+ * Submit a publication request for an owned trail
+ */
+export const requestTrailPublication = async ({ trailId, userId, user }) => {
+  const trail = await Trail.findById(trailId);
+  if (!trail) {
+    throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
+  }
+
+  // Ownership check
+  if (trail.ownerId.toString() !== userId.toString()) {
+    throw new ApiError(403, "FORBIDDEN", "You can only request publication for your own trails.");
+  }
+
+  // Prevent duplicate or invalid state transitions
+  if (trail.status === "pending_review") {
+    throw new ApiError(400, "DUPLICATE_REQUEST", "Publication request is already pending review for this trail.");
+  }
+
+  if (trail.status === "published") {
+    throw new ApiError(400, "INVALID_STATE_TRANSITION", "Trail is already published.");
+  }
+
+  // Eligibility check: all referenced stops must exist and be approved
+  if (!trail.stops || trail.stops.length === 0) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Trail must contain at least one stop to request publication.");
+  }
+
+  const places = await Place.find({ _id: { $in: trail.stops } }).lean();
+  const placeMap = new Map(places.map((p) => [p._id.toString(), p]));
+
+  for (const stopId of trail.stops) {
+    const p = placeMap.get(stopId.toString());
+    if (!p) {
+      throw new ApiError(400, "INVALID_PLACE_REFERENCE", `Referenced stop ${stopId} does not exist.`);
+    }
+    if (p.status !== "approved") {
+      throw new ApiError(
+        400,
+        "INELIGIBLE_TRAIL_RESOURCES",
+        `Trail contains unapproved or ineligible heritage place: ${p.name || stopId}. All stops must be approved heritage places before publication.`
+      );
+    }
+  }
+
+  trail.status = "pending_review";
+  // Keep visibility private until approved by curator
+  trail.visibility = "private";
+  await trail.save();
+
+  // Record review request in EditorialReview
+  await EditorialReview.create({
+    resourceId: trail._id,
+    resourceType: "Trail",
+    reviewedBy: userId,
+    decision: "pending_review",
+  });
+
+  return formatTrail(trail);
+};
+
+/**
+ * Submit a sharing request for an owned trail
+ */
+export const requestTrailSharing = async ({ trailId, userId, user }) => {
+  return requestTrailPublication({ trailId, userId, user });
+};
+
 export default {
   createTrail,
   getUserTrails,
@@ -291,4 +399,7 @@ export default {
   submitTrailFeedback,
   getTrailFeedback,
   updateTrailFeedback,
+  getPublishedTrails,
+  requestTrailPublication,
+  requestTrailSharing,
 };

@@ -36,6 +36,29 @@ const optionalAuth = async (req, res, next) => {
 };
 
 /**
+ * GET /api/trails
+ * Retrieve approved published trails for public browsing
+ */
+router.get("/", optionalAuth, validateQuery(trailQuerySchema), async (req, res, next) => {
+  try {
+    const { theme, page, limit } = req.query;
+    const trails = await trailService.getPublishedTrails({
+      theme,
+      page,
+      limit,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: trails,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/trails
  * Create and save a new private trail for the authenticated user
  */
@@ -215,6 +238,60 @@ router.patch(
       return res.status(200).json({
         success: true,
         data: updated,
+        error: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/trails/:id/publish-request
+ * Submit a publication review request for an owned trail
+ */
+router.post(
+  "/:id/publish-request",
+  requireAuth,
+  validateParams(idParamSchema),
+  async (req, res, next) => {
+    try {
+      const trail = await trailService.requestTrailPublication({
+        trailId: req.params.id,
+        userId: req.user._id,
+        user: req.user,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: trail,
+        error: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/trails/:id/share-request
+ * Submit a sharing / publication review request for an owned trail
+ */
+router.post(
+  "/:id/share-request",
+  requireAuth,
+  validateParams(idParamSchema),
+  async (req, res, next) => {
+    try {
+      const trail = await trailService.requestTrailSharing({
+        trailId: req.params.id,
+        userId: req.user._id,
+        user: req.user,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: trail,
         error: null,
       });
     } catch (error) {

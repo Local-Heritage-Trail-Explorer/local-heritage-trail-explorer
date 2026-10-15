@@ -705,7 +705,118 @@ All `/api/curator/*` endpoints require authentication with role `CURATOR`.
 
 ---
 
-## 8. Error Code Reference
+## 8. P8 — Guide Publication and Sharing APIs
+
+### A. Public Guide Browsing
+
+#### `GET /api/trails`
+- **Purpose:** Retrieve approved, publicly published heritage trail guides for visitors.
+- **Authentication:** None (Public).
+- **Query Parameters:** `theme` (optional), `page` (default 1), `limit` (default 10).
+- **Privacy Guarantee:** Only trails with `status: "published"` and `visibility: "public"` are returned. Personal visit progress, timestamps, and private notes are strictly excluded.
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "507f1f77bcf86cd799439041",
+      "title": "Tirumala Heritage Guide",
+      "theme": "spiritual",
+      "stops": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
+      "estimatedMinutes": 75,
+      "status": "published",
+      "visibility": "public",
+      "author": {
+        "id": "507f1f77bcf86cd799439072",
+        "name": "Tirumala Heritage Guide"
+      },
+      "createdAt": "2026-10-15T12:00:00.000Z",
+      "updatedAt": "2026-10-15T12:30:00.000Z"
+    }
+  ],
+  "error": null
+}
+```
+
+---
+
+### B. Trail Publication & Sharing Requests
+
+#### `POST /api/trails/:id/publish-request` & `POST /api/trails/:id/share-request`
+- **Purpose:** Request editorial publication review for a private trail created by the user or guide.
+- **Authentication:** Required (Owner only).
+- **CSRF Token:** Required (`x-csrf-token`).
+- **Eligibility Rules:**
+  - Trail must have at least one stop.
+  - Every stop must reference an existing `Place` with `status: "approved"`.
+  - Trail must not already be in `pending_review` or `published` state.
+- **State Transition:** Trail status transitions to `"pending_review"`. Trail remains `"private"` until curator approval.
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "507f1f77bcf86cd799439041",
+    "ownerId": "507f1f77bcf86cd799439072",
+    "title": "Tirumala Heritage Guide",
+    "theme": "spiritual",
+    "stops": ["507f1f77bcf86cd799439011"],
+    "status": "pending_review",
+    "visibility": "private"
+  },
+  "error": null
+}
+```
+
+---
+
+### C. Curator Guide Publication Review
+
+#### `GET /api/curator/trails` (alias `/api/curator/guides`)
+- **Purpose:** List trails/guides submitted for publication review.
+- **Authentication:** Required (role `CURATOR`).
+- **Query Parameters:** `status` (default `pending_review`), `page`, `limit`.
+
+#### `PATCH /api/curator/trails/:id/review` (alias `/api/curator/guides/:id/review`)
+- **Purpose:** Review and approve/reject publication of a submitted trail guide.
+- **Authentication:** Required (role `CURATOR`).
+- **CSRF Token:** Required (`x-csrf-token`).
+- **Request Body:**
+```json
+{
+  "status": "approved",
+  "notes": "Verified that all stops meet heritage quality standards."
+}
+```
+- **State Transitions:**
+  - `status: "approved"`: Trail transitions to `status: "published"` and `visibility: "public"`. Logged in `EditorialReview`.
+  - `status: "rejected"`: Trail transitions to `status: "rejected"` and `visibility: "private"`. Logged in `EditorialReview`.
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "trail": {
+      "id": "507f1f77bcf86cd799439041",
+      "title": "Tirumala Heritage Guide",
+      "status": "published",
+      "visibility": "public"
+    },
+    "review": {
+      "id": "507f1f77bcf86cd799439095",
+      "decision": "approved",
+      "reviewedBy": "507f1f77bcf86cd799439071",
+      "createdAt": "2026-10-15T12:30:00.000Z"
+    }
+  },
+  "error": null
+}
+```
+
+---
+
+## 9. Error Code Reference
 
 | Error Code | HTTP Status | Description |
 |---|---|---|
@@ -715,6 +826,9 @@ All `/api/curator/*` endpoints require authentication with role `CURATOR`.
 | `INVALID_PLACE_REFERENCE`| 400 | One or more referenced places do not exist. |
 | `INVALID_SOURCE_REFERENCE`| 400 | One or more referenced sources do not exist. |
 | `INVALID_FEEDBACK_REFERENCE`| 400 | Feedback does not belong to the specified trail. |
+| `INELIGIBLE_TRAIL_RESOURCES`| 400 | Trail contains unapproved or ineligible heritage places for publication. |
+| `DUPLICATE_REQUEST` | 400 | A publication request is already pending for this trail. |
+| `INVALID_STATE_TRANSITION` | 400 | Invalid state transition attempted on trail or review. |
 | `INVALID_STOP` | 400 | The specified stop does not belong to the trail. |
 | `UNAUTHORIZED` | 401 | Authentication is required (missing or expired session). |
 | `FORBIDDEN` | 403 | Authenticated user lacks permission (non-owner or non-curator). |
