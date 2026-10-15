@@ -7,6 +7,9 @@ import {
   createTrailSchema,
   trailQuerySchema,
   updateProgressSchema,
+  submitFeedbackSchema,
+  updateFeedbackSchema,
+  trailAndFeedbackParamsSchema,
 } from "../validators/trail.schema.js";
 import trailService from "../services/trail.service.js";
 
@@ -122,6 +125,96 @@ router.patch(
       return res.status(200).json({
         success: true,
         data: progress,
+        error: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/trails/:id/feedback
+ * Submit feedback for a trail
+ */
+router.post(
+  "/:id/feedback",
+  requireAuth,
+  validateParams(idParamSchema),
+  validate(submitFeedbackSchema),
+  async (req, res, next) => {
+    try {
+      const { description } = req.body;
+      const feedback = await trailService.submitTrailFeedback({
+        trailId: req.params.id,
+        userId: req.user._id,
+        user: req.user,
+        description,
+      });
+
+      return res.status(201).json({
+        success: true,
+        data: feedback,
+        error: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/trails/:id/feedback
+ * Retrieve feedback for a trail
+ */
+router.get(
+  "/:id/feedback",
+  optionalAuth,
+  validateParams(idParamSchema),
+  validateQuery(trailQuerySchema),
+  async (req, res, next) => {
+    try {
+      const { page, limit } = req.query;
+      const feedbackList = await trailService.getTrailFeedback({
+        trailId: req.params.id,
+        user: req.user,
+        page,
+        limit,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: feedbackList,
+        error: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/trails/:id/feedback/:feedbackId
+ * Update feedback submitted by the authenticated user
+ */
+router.patch(
+  "/:id/feedback/:feedbackId",
+  requireAuth,
+  validateParams(trailAndFeedbackParamsSchema),
+  validate(updateFeedbackSchema),
+  async (req, res, next) => {
+    try {
+      const { description } = req.body;
+      const updated = await trailService.updateTrailFeedback({
+        trailId: req.params.id,
+        feedbackId: req.params.feedbackId,
+        userId: req.user._id,
+        description,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: updated,
         error: null,
       });
     } catch (error) {

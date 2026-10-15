@@ -2,6 +2,7 @@ import { Place } from "../models/place.model.js";
 import { Source } from "../models/source.model.js";
 import { Story } from "../models/story.model.js";
 import { Correction } from "../models/correction.model.js";
+import { TrailFeedback } from "../models/trail-feedback.model.js";
 import { EditorialReview } from "../models/editorial-review.model.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 
@@ -387,7 +388,7 @@ export const getCuratorCorrectionById = async (id) => {
   };
 };
 
-export const reviewCorrection = async (id, { status, notes }, reviewerId) => {
+export const reviewCorrection = async (id, { status, notes, appliedPlaceUpdates }, reviewerId) => {
   const correction = await Correction.findById(id);
   if (!correction) {
     throw new ApiError(404, "CORRECTION_NOT_FOUND", "Correction submission not found.");
@@ -404,11 +405,132 @@ export const reviewCorrection = async (id, { status, notes }, reviewerId) => {
     decision: status,
   });
 
-  return {
+  let updatedPlace = null;
+  // If approved and appliedPlaceUpdates are provided, safely update permitted fields on the referenced Place
+  if (status === "approved" && appliedPlaceUpdates && typeof appliedPlaceUpdates === "object") {
+    const permittedFields = [
+      "name",
+      "description",
+      "zone",
+      "themes",
+      "openingHours",
+      "hoursVerification",
+      "estimatedVisitMinutes",
+    ];
+
+    const updateDoc = {};
+    for (const field of permittedFields) {
+      if (appliedPlaceUpdates[field] !== undefined) {
+        updateDoc[field] = appliedPlaceUpdates[field];
+      }
+    }
+
+    if (Object.keys(updateDoc).length > 0) {
+      const place = await Place.findByIdAndUpdate(
+        correction.placeId,
+        { $set: updateDoc },
+        { new: true, runValidators: true }
+      ).lean();
+
+      if (place) {
+        updatedPlace = {
+          id: place._id.toString(),
+          name: place.name,
+          description: place.description,
+          zone: place.zone,
+          themes: place.themes,
+          openingHours: place.openingHours,
+          hoursVerification: place.hoursVerification,
+          estimatedVisitMinutes: place.estimatedVisitMinutes,
+          status: place.status,
+        };
+      }
+    }
+  }
+
+  const responseData = {
     correction: {
       id: correction._id.toString(),
       status: correction.status,
       reviewedBy: reviewerId.toString(),
+    },
+    review: {
+      id: review._id.toString(),
+      decision: review.decision,
+      reviewedBy: reviewerId.toString(),
+      createdAt: review.createdAt,
+    },
+  };
+
+  if (updatedPlace) {
+    responseData.place = updatedPlace;
+  }
+
+  return responseData;
+};
+
+// ==========================================
+// 5. TRAIL FEEDBACK MODERATION
+// ==========================================
+
+export const getCuratorFeedback = async ({ status, page = 1, limit = 10 } = {}) => {
+  const filter = {};
+  if (status) {
+    filter.status = status;
+  }
+
+  const skip = (page - 1) * limit;
+  const feedbacks = await TrailFeedback.find(filter)
+    .populate("trailId", "title visibility")
+    .populate("submittedBy", "name email")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  return feedbacks.map((f) => ({
+    id: f._id.toString(),
+    trail: f.trailId
+      ? {
+          id: f.trailId._id?.toString() || f.trailId.toString(),
+          title: f.trailId.title,
+          visibility: f.trailId.visibility,
+        }
+      : null,
+    submittedBy: f.submittedBy
+      ? {
+          id: f.submittedBy._id?.toString() || f.submittedBy.toString(),
+          name: f.submittedBy.name,
+          email: f.submittedBy.email,
+        }
+      : null,
+    description: f.description,
+    status: f.status,
+    createdAt: f.createdAt,
+    updatedAt: f.updatedAt,
+  }));
+};
+
+export const reviewFeedback = async (id, { status, notes }, reviewerId) => {
+  const feedback = await TrailFeedback.findById(id);
+  if (!feedback) {
+    throw new ApiError(404, "FEEDBACK_NOT_FOUND", "Trail feedback not found.");
+  }
+
+  feedback.status = status;
+  await feedback.save();
+
+  const review = await EditorialReview.create({
+    resourceId: feedback._id,
+    resourceType: "TrailFeedback",
+    reviewedBy: reviewerId,
+    decision: status,
+  });
+
+  return {
+    feedback: {
+      id: feedback._id.toString(),
+      status: feedback.status,
     },
     review: {
       id: review._id.toString(),
@@ -434,4 +556,6 @@ export default {
   getCuratorCorrections,
   getCuratorCorrectionById,
   reviewCorrection,
+  getCuratorFeedback,
+  reviewFeedback,
 };

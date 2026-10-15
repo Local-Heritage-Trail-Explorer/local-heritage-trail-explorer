@@ -48,8 +48,47 @@ export const updateProgressSchema = z.object({
   placeId: objectIdSchema,
 });
 
+/**
+ * Validation schema for submitting trail feedback (POST /api/trails/:id/feedback)
+ */
+export const submitFeedbackSchema = z.object({
+  description: z
+    .string({ required_error: "Description is required" })
+    .trim()
+    .min(5, "Description must be at least 5 characters")
+    .max(2000, "Description cannot exceed 2000 characters"),
+  rating: z
+    .number({ invalid_type_error: "Rating must be a number" })
+    .int("Rating must be an integer")
+    .min(1, "Rating must be between 1 and 5")
+    .max(5, "Rating must be between 1 and 5")
+    .optional(),
+});
+
+/**
+ * Validation schema for updating trail feedback (PATCH /api/trails/:id/feedback/:feedbackId)
+ */
+export const updateFeedbackSchema = z.object({
+  description: z
+    .string({ required_error: "Description is required" })
+    .trim()
+    .min(5, "Description must be at least 5 characters")
+    .max(2000, "Description cannot exceed 2000 characters"),
+});
+
+/**
+ * Validation schema for parameters with trail ID and feedback ID
+ */
+export const trailAndFeedbackParamsSchema = z.object({
+  id: objectIdSchema,
+  feedbackId: objectIdSchema,
+});
+
 export default {
   createTrailSchema,
   trailQuerySchema,
   updateProgressSchema,
+  submitFeedbackSchema,
+  updateFeedbackSchema,
+  trailAndFeedbackParamsSchema,
 };

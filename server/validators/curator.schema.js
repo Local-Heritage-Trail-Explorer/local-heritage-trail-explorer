@@ -95,6 +95,17 @@ export const reviewDecisionSchema = z.object({
     required_error: "Decision status must be either 'approved' or 'rejected'",
   }),
   notes: z.string().trim().optional(),
+  appliedPlaceUpdates: z
+    .object({
+      name: z.string().trim().min(1).optional(),
+      description: z.string().trim().min(1).optional(),
+      zone: z.string().trim().min(1).optional(),
+      themes: z.array(z.string().trim().min(1)).min(1).optional(),
+      openingHours: z.record(z.any()).optional(),
+      hoursVerification: z.string().trim().min(1).optional(),
+      estimatedVisitMinutes: z.number().int().positive().optional(),
+    })
+    .optional(),
 });
 
 /**

@@ -440,13 +440,272 @@ All `/api/curator/*` endpoints require authentication with role `CURATOR`.
 
 ### Corrections
 - `POST /api/corrections`: Submit a correction for a heritage place (Authenticated User, role `VISITOR` or `CURATOR`).
+- `GET /api/corrections/mine`: List corrections submitted by the authenticated user.
+- `GET /api/corrections/:id`: Retrieve single correction submitted by user.
 - `GET /api/curator/corrections`: List pending corrections for curator review.
 - `GET /api/curator/corrections/:id`: Retrieve single correction details with place and submitter info.
-- `PATCH /api/curator/corrections/:id/review`: Approve or reject correction (`{ "status": "approved" | "rejected" }`), sets `reviewedBy` and creates `EditorialReview`.
+- `PATCH /api/curator/corrections/:id/review`: Approve or reject correction (`{ "status": "approved" | "rejected", "appliedPlaceUpdates": { ... } }`), sets `reviewedBy`, creates `EditorialReview`, and safely updates permitted place fields if provided.
 
 ---
 
-## 7. Error Code Reference
+## 7. P7 — Corrections and Trail Feedback APIs
+
+### A. Heritage Place Corrections
+
+#### `POST /api/corrections`
+- **Purpose:** Submit a report of outdated, inaccurate, or incomplete information for an existing heritage place.
+- **Authentication:** Required (role `VISITOR` or `CURATOR`).
+- **CSRF Token:** Required (`x-csrf-token`).
+- **Request Body:**
+```json
+{
+  "placeId": "507f1f77bcf86cd799439011",
+  "description": "The museum opening hours changed from 9:00 AM to 8:30 AM on weekends."
+}
+```
+- **Validation Rules:**
+  - `placeId`: Valid 24-character hex MongoDB ObjectId; referenced place must exist.
+  - `description`: String, 5–2000 characters.
+- **Response (HTTP 201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "507f1f77bcf86cd799439051",
+    "placeId": "507f1f77bcf86cd799439011",
+    "submittedBy": "507f1f77bcf86cd799439072",
+    "description": "The museum opening hours changed from 9:00 AM to 8:30 AM on weekends.",
+    "status": "pending",
+    "createdAt": "2026-10-15T12:00:00.000Z",
+    "updatedAt": "2026-10-15T12:00:00.000Z"
+  },
+  "error": null
+}
+```
+
+#### `GET /api/corrections/mine`
+- **Purpose:** Retrieve corrections submitted by the authenticated user.
+- **Authentication:** Required (User Session).
+- **Query Parameters:** `page` (default 1), `limit` (default 10).
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "507f1f77bcf86cd799439051",
+      "placeId": "507f1f77bcf86cd799439011",
+      "place": {
+        "id": "507f1f77bcf86cd799439011",
+        "name": "Sri Venkateswara Museum",
+        "zone": "Tirumala Up-Hill"
+      },
+      "description": "The museum opening hours changed from 9:00 AM to 8:30 AM on weekends.",
+      "status": "pending",
+      "createdAt": "2026-10-15T12:00:00.000Z",
+      "updatedAt": "2026-10-15T12:00:00.000Z"
+    }
+  ],
+  "error": null
+}
+```
+
+#### `PATCH /api/curator/corrections/:id/review`
+- **Purpose:** Approve or reject a submitted correction and optionally safe-apply verified changes to the referenced Place.
+- **Authentication:** Required (role `CURATOR`).
+- **CSRF Token:** Required (`x-csrf-token`).
+- **Request Body:**
+```json
+{
+  "status": "approved",
+  "notes": "Verified against temple notice board.",
+  "appliedPlaceUpdates": {
+    "hoursVerification": "verified",
+    "openingHours": { "open": "08:30", "close": "18:00" }
+  }
+}
+```
+- **Safe Application Constraints:** Permitted fields for updates are strictly limited to `name`, `description`, `zone`, `themes`, `openingHours`, `hoursVerification`, `estimatedVisitMinutes`.
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "correction": {
+      "id": "507f1f77bcf86cd799439051",
+      "status": "approved",
+      "reviewedBy": "507f1f77bcf86cd799439071"
+    },
+    "review": {
+      "id": "507f1f77bcf86cd799439097",
+      "decision": "approved",
+      "reviewedBy": "507f1f77bcf86cd799439071",
+      "createdAt": "2026-10-15T12:05:00.000Z"
+    },
+    "place": {
+      "id": "507f1f77bcf86cd799439011",
+      "name": "Sri Venkateswara Museum",
+      "hoursVerification": "verified"
+    }
+  },
+  "error": null
+}
+```
+
+---
+
+### B. Trail Feedback Management
+
+#### `POST /api/trails/:id/feedback`
+- **Purpose:** Submit visitor feedback for an existing trail.
+- **Authentication:** Required.
+- **Access Control:** Public trails accept feedback from any authenticated user. Private trails accept feedback only from the trail owner.
+- **CSRF Token:** Required (`x-csrf-token`).
+- **Request Body:**
+```json
+{
+  "description": "Informative trail markers and peaceful atmosphere throughout the path.",
+  "rating": 5
+}
+```
+- **Validation Rules:**
+  - `description`: String, 5–2000 characters.
+  - `rating`: Optional integer between 1 and 5.
+- **Response (HTTP 201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "507f1f77bcf86cd799439061",
+    "trailId": "507f1f77bcf86cd799439041",
+    "submittedBy": "507f1f77bcf86cd799439072",
+    "description": "Informative trail markers and peaceful atmosphere throughout the path.",
+    "status": "pending",
+    "createdAt": "2026-10-15T12:10:00.000Z",
+    "updatedAt": "2026-10-15T12:10:00.000Z"
+  },
+  "error": null
+}
+```
+
+#### `GET /api/trails/:id/feedback`
+- **Purpose:** Retrieve feedback submitted for a specific trail.
+- **Authentication:** Optional for public trails; Required and restricted to owner for private trails.
+- **Privacy Guarantee:** Submitter information is projected strictly to public fields (`id`, `name`). Email, passwords, reset tokens, and visit histories are excluded.
+- **Query Parameters:** `page` (default 1), `limit` (default 10).
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "507f1f77bcf86cd799439061",
+      "trailId": "507f1f77bcf86cd799439041",
+      "description": "Informative trail markers and peaceful atmosphere throughout the path.",
+      "status": "pending",
+      "submittedBy": {
+        "id": "507f1f77bcf86cd799439072",
+        "name": "Visitor One"
+      },
+      "createdAt": "2026-10-15T12:10:00.000Z"
+    }
+  ],
+  "error": null
+}
+```
+
+#### `PATCH /api/trails/:id/feedback/:feedbackId`
+- **Purpose:** Update existing feedback submitted by the authenticated user.
+- **Authentication:** Required (restricted to original feedback submitter).
+- **CSRF Token:** Required (`x-csrf-token`).
+- **Request Body:**
+```json
+{
+  "description": "Updated feedback with extra details after second visit."
+}
+```
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "507f1f77bcf86cd799439061",
+    "trailId": "507f1f77bcf86cd799439041",
+    "submittedBy": "507f1f77bcf86cd799439072",
+    "description": "Updated feedback with extra details after second visit.",
+    "status": "pending",
+    "createdAt": "2026-10-15T12:10:00.000Z",
+    "updatedAt": "2026-10-15T12:15:00.000Z"
+  },
+  "error": null
+}
+```
+
+#### `GET /api/curator/feedback`
+- **Purpose:** List feedback across trails for curator moderation.
+- **Authentication:** Required (role `CURATOR`).
+- **Query Parameters:** `status` (e.g. `pending`, `approved`, `rejected`), `page`, `limit`.
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "507f1f77bcf86cd799439061",
+      "trail": {
+        "id": "507f1f77bcf86cd799439041",
+        "title": "Tirumala Heritage Trail",
+        "visibility": "public"
+      },
+      "submittedBy": {
+        "id": "507f1f77bcf86cd799439072",
+        "name": "Visitor One",
+        "email": "visitor1@example.com"
+      },
+      "description": "Informative trail markers and peaceful atmosphere throughout the path.",
+      "status": "pending",
+      "createdAt": "2026-10-15T12:10:00.000Z",
+      "updatedAt": "2026-10-15T12:10:00.000Z"
+    }
+  ],
+  "error": null
+}
+```
+
+#### `PATCH /api/curator/feedback/:id/review`
+- **Purpose:** Review and moderate trail feedback (`approved` / `rejected`).
+- **Authentication:** Required (role `CURATOR`).
+- **CSRF Token:** Required (`x-csrf-token`).
+- **Request Body:**
+```json
+{
+  "status": "approved",
+  "notes": "Reviewed and verified feedback appropriate for public display."
+}
+```
+- **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "feedback": {
+      "id": "507f1f77bcf86cd799439061",
+      "status": "approved"
+    },
+    "review": {
+      "id": "507f1f77bcf86cd799439096",
+      "decision": "approved",
+      "reviewedBy": "507f1f77bcf86cd799439071",
+      "createdAt": "2026-10-15T12:20:00.000Z"
+    }
+  },
+  "error": null
+}
+```
+
+---
+
+## 8. Error Code Reference
 
 | Error Code | HTTP Status | Description |
 |---|---|---|
@@ -455,6 +714,7 @@ All `/api/curator/*` endpoints require authentication with role `CURATOR`.
 | `INVALID_ID` | 400 | The provided `:id` parameter is not a 24-character hex MongoDB ObjectId. |
 | `INVALID_PLACE_REFERENCE`| 400 | One or more referenced places do not exist. |
 | `INVALID_SOURCE_REFERENCE`| 400 | One or more referenced sources do not exist. |
+| `INVALID_FEEDBACK_REFERENCE`| 400 | Feedback does not belong to the specified trail. |
 | `INVALID_STOP` | 400 | The specified stop does not belong to the trail. |
 | `UNAUTHORIZED` | 401 | Authentication is required (missing or expired session). |
 | `FORBIDDEN` | 403 | Authenticated user lacks permission (non-owner or non-curator). |
@@ -464,5 +724,6 @@ All `/api/curator/*` endpoints require authentication with role `CURATOR`.
 | `STORY_NOT_FOUND` | 404 | The requested story does not exist or is unapproved for public browsing. |
 | `SOURCE_NOT_FOUND` | 404 | The requested source does not exist or is unapproved for public browsing. |
 | `CORRECTION_NOT_FOUND` | 404 | The requested correction record does not exist. |
+| `FEEDBACK_NOT_FOUND` | 404 | The requested trail feedback record does not exist. |
 | `ROUTE_NOT_FOUND` | 404 | The requested route does not exist on this server. |
 | `INTERNAL_SERVER_ERROR` | 500 | An unhandled operational or database exception occurred. |

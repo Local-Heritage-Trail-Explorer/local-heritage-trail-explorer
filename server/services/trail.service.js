@@ -1,6 +1,7 @@
 import { Trail } from "../models/trail.model.js";
 import { Place } from "../models/place.model.js";
 import { VisitProgress } from "../models/visit-progress.model.js";
+import { TrailFeedback } from "../models/trail-feedback.model.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 
 /**
@@ -173,9 +174,121 @@ export const updateTrailProgress = async ({ trailId, userId, placeId }) => {
   };
 };
 
+/**
+ * Submit feedback on a trail
+ */
+export const submitTrailFeedback = async ({ trailId, userId, user, description }) => {
+  const trail = await Trail.findById(trailId).lean();
+  if (!trail) {
+    throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
+  }
+
+  // Private trail access check: only owner can submit feedback on their private trail
+  if (trail.visibility === "private") {
+    if (!user) {
+      throw new ApiError(401, "UNAUTHORIZED", "Authentication required to access this private trail.");
+    }
+    if (trail.ownerId.toString() !== user._id.toString()) {
+      throw new ApiError(403, "FORBIDDEN", "Access denied. You do not have permission to submit feedback on this private trail.");
+    }
+  }
+
+  const feedback = await TrailFeedback.create({
+    trailId,
+    submittedBy: userId,
+    description,
+    status: "pending",
+  });
+
+  return {
+    id: feedback._id.toString(),
+    trailId: feedback.trailId.toString(),
+    submittedBy: feedback.submittedBy.toString(),
+    description: feedback.description,
+    status: feedback.status,
+    createdAt: feedback.createdAt,
+    updatedAt: feedback.updatedAt,
+  };
+};
+
+/**
+ * Get feedback for a trail
+ */
+export const getTrailFeedback = async ({ trailId, user, page = 1, limit = 10 } = {}) => {
+  const trail = await Trail.findById(trailId).lean();
+  if (!trail) {
+    throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
+  }
+
+  if (trail.visibility === "private") {
+    if (!user) {
+      throw new ApiError(401, "UNAUTHORIZED", "Authentication required to view this private trail.");
+    }
+    if (trail.ownerId.toString() !== user._id.toString()) {
+      throw new ApiError(403, "FORBIDDEN", "Access denied. You do not own this private trail.");
+    }
+  }
+
+  const skip = (page - 1) * limit;
+  const feedbacks = await TrailFeedback.find({ trailId })
+    .populate("submittedBy", "name")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  return feedbacks.map((f) => ({
+    id: f._id.toString(),
+    trailId: f.trailId.toString(),
+    description: f.description,
+    status: f.status,
+    submittedBy: f.submittedBy
+      ? {
+          id: f.submittedBy._id?.toString() || f.submittedBy.toString(),
+          name: f.submittedBy.name,
+        }
+      : null,
+    createdAt: f.createdAt,
+  }));
+};
+
+/**
+ * Update feedback by the submitting user
+ */
+export const updateTrailFeedback = async ({ trailId, feedbackId, userId, description }) => {
+  const feedback = await TrailFeedback.findById(feedbackId);
+  if (!feedback) {
+    throw new ApiError(404, "FEEDBACK_NOT_FOUND", "Trail feedback not found.");
+  }
+
+  if (feedback.trailId.toString() !== trailId.toString()) {
+    throw new ApiError(400, "INVALID_FEEDBACK_REFERENCE", "Feedback does not belong to the specified trail.");
+  }
+
+  if (feedback.submittedBy.toString() !== userId.toString()) {
+    throw new ApiError(403, "FORBIDDEN", "You can only modify your own feedback.");
+  }
+
+  feedback.description = description;
+  await feedback.save();
+
+  return {
+    id: feedback._id.toString(),
+    trailId: feedback.trailId.toString(),
+    submittedBy: feedback.submittedBy.toString(),
+    description: feedback.description,
+    status: feedback.status,
+    createdAt: feedback.createdAt,
+    updatedAt: feedback.updatedAt,
+  };
+};
+
 export default {
   createTrail,
   getUserTrails,
   getTrailById,
   updateTrailProgress,
+  submitTrailFeedback,
+  getTrailFeedback,
+  updateTrailFeedback,
 };

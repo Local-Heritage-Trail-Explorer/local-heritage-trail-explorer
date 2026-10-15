@@ -222,4 +222,35 @@ router.patch("/corrections/:id/review", validateParams(idParamSchema), validate(
   }
 });
 
+// ==========================================
+// 5. TRAIL FEEDBACK REVIEW
+// ==========================================
+
+router.get("/feedback", validateQuery(curatorListQuerySchema), async (req, res, next) => {
+  try {
+    const { status, page, limit } = req.query;
+    const feedbacks = await curatorService.getCuratorFeedback({ status, page, limit });
+    return res.status(200).json({
+      success: true,
+      data: feedbacks,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/feedback/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), async (req, res, next) => {
+  try {
+    const result = await curatorService.reviewFeedback(req.params.id, req.body, req.user._id);
+    return res.status(200).json({
+      success: true,
+      data: result,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
