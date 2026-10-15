@@ -1,5 +1,6 @@
 import session from "express-session";
 import MongoStore from "connect-mongo";
+import dns from "dns";
 
 export const configureSession = (customStore) => {
   const isProd = process.env.NODE_ENV === "production";
@@ -9,10 +10,17 @@ export const configureSession = (customStore) => {
   let store;
   if (customStore) {
     store = customStore;
-  } else if (process.env.NODE_ENV === "test" && !process.env.MONGODB_URI) {
-    // MemoryStore for isolated unit/integration testing if Mongo URI not provided
+  } else if (process.env.NODE_ENV === "test") {
+    // MemoryStore for isolated unit/integration testing
     store = new session.MemoryStore();
   } else {
+    if (mongoUri.startsWith("mongodb+srv://")) {
+      try {
+        dns.setServers(["8.8.8.8", "1.1.1.1"]);
+      } catch (dnsErr) {
+        // Fallback silently if restricted
+      }
+    }
     store = MongoStore.create({
       mongoUrl: mongoUri,
       collectionName: "sessions",
