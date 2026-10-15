@@ -1,6 +1,7 @@
 {
   "name": "local-heritage-trail-explorer-server",
   "version": "1.0.0",
+  "description": "Backend API for Tirumala Local Heritage Trail Explorer",
   "type": "module",
   "main": "server.js",
   "scripts": {
