@@ -52,6 +52,29 @@ export const getApprovedStoryById = async (id) => {
   };
 };
 
+/**
+ * Get all approved stories with pagination
+ */
+export const getApprovedStories = async ({ page = 1, limit = 20 } = {}) => {
+  const skip = (Math.max(1, parseInt(page, 10) || 1) - 1) * Math.max(1, parseInt(limit, 10) || 20);
+  const stories = await Story.find({ status: "approved" })
+    .populate("placeId", "name")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  return stories.map((s) => ({
+    id: s._id.toString(),
+    title: s.title,
+    content: s.content,
+    claimType: s.claimType,
+    placeName: s.placeId?.name || null,
+    status: s.status,
+  }));
+};
+
 export default {
   getApprovedStoryById,
+  getApprovedStories,
 };

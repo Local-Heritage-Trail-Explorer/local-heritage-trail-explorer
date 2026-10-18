@@ -5,13 +5,18 @@ import dns from "dns";
 export const configureSession = (customStore) => {
   const isProd = process.env.NODE_ENV === "production";
   const sessionSecret = process.env.SESSION_SECRET || "dev_heritage_trail_session_secret_key_2026";
-  const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/heritage_trail_db";
+  const mongoUri = process.env.MONGODB_URI;
 
   let store;
   if (customStore) {
     store = customStore;
-  } else if (process.env.NODE_ENV === "test") {
-    // MemoryStore for isolated unit/integration testing
+  } else if (
+    process.env.NODE_ENV === "test" ||
+    !mongoUri ||
+    mongoUri.includes("<username>") ||
+    mongoUri.includes("<password>")
+  ) {
+    // MemoryStore for isolated testing or unconfigured development
     store = new session.MemoryStore();
   } else {
     if (mongoUri.startsWith("mongodb+srv://")) {

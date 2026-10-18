@@ -46,7 +46,9 @@ export const Navbar = () => {
         </Link>
         <Link to="/places" style={linkStyle}>Places</Link>
         <Link to="/stories" style={linkStyle}>Stories</Link>
+        <Link to="/sources" style={linkStyle}>Sources</Link>
         <Link to="/trail-planner" style={linkStyle}>Trails</Link>
+        <Link to="/chat" style={{ ...linkStyle, color: "#f6ad55", fontWeight: "bold" }}>AI Historian</Link>
         {user && <Link to="/saved-trails" style={linkStyle}>Saved Trails</Link>}
         {user?.role === "CURATOR" && <Link to="/curator" style={{ ...linkStyle, color: "#d6bcfa" }}>Curator Panel</Link>}
         {user?.role === "GUIDE" && <Link to="/guide" style={{ ...linkStyle, color: "#fbd38d" }}>Guide Panel</Link>}

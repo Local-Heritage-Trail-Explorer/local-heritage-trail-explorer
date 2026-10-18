@@ -136,7 +136,7 @@ const diagnoseMongoError = (error) => {
  * Accepts an optional uri parameter for testing with in-memory databases
  */
 export const connectDB = async (uri) => {
-  const mongoUri = uri || process.env.MONGODB_URI || "mongodb://localhost:27017/heritage_trail_db";
+  const mongoUri = uri || process.env.MONGODB_URI;
 
   if (!mongoUri) {
     console.warn("Notice: MONGODB_URI is not set in environment variables. Database is disconnected.");

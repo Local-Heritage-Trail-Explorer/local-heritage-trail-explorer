@@ -21,7 +21,7 @@ class EmailService {
   }
 
   async sendVerificationEmail(email, rawToken) {
-    const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+    const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5174";
     const verificationUrl = `${clientOrigin}/verify-email?token=${rawToken}`;
     const fromAddress = process.env.EMAIL_FROM || "noreply@tirumalaheritage.org";
 
@@ -50,7 +50,7 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(email, rawToken) {
-    const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+    const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5174";
     const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
     const fromAddress = process.env.EMAIL_FROM || "noreply@tirumalaheritage.org";
 

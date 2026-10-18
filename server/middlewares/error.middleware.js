@@ -27,6 +27,10 @@ export const notFoundHandler = (req, res) => {
  * Centralized error handling middleware
  */
 export const errorHandler = (err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   console.error(`[Global Error Handler] ${err.stack || err.message || err}`);
 
   // Handle MongoDB duplicate key error (E11000)

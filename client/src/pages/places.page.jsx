@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import placeService from "../services/place.service.js";
 
 const heritagePlaces = [
   {
@@ -106,19 +107,49 @@ const categories = [
 ];
 
 const PlacesPage = () => {
+  const [placesList, setPlacesList] = useState(heritagePlaces);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedRegion, setSelectedRegion] = useState("All");
 
-  const filteredPlaces = heritagePlaces.filter((place) => {
+  useEffect(() => {
+    let isMounted = true;
+    placeService
+      .getPlaces()
+      .then((res) => {
+        if (!isMounted) return;
+        const apiPlaces = res?.data || res;
+        if (Array.isArray(apiPlaces) && apiPlaces.length > 0) {
+          // Normalize API places to ensure name, location/zone, and category are formatted
+          const formatted = apiPlaces.map((p) => ({
+            id: p._id || p.id,
+            name: p.name,
+            location: p.zone || p.location || "Tirumala Heritage Region",
+            category: p.category || "Heritage Site",
+            region: (p.zone || p.location || "tirumala").toLowerCase(),
+            description: p.description || p.historicalSignificance || "Historic heritage landmark.",
+          }));
+          setPlacesList(formatted);
+        }
+      })
+      .catch(() => {
+        // Fallback to static heritagePlaces continues
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredPlaces = placesList.filter((place) => {
     const matchesSearch =
       place.name.toLowerCase().includes(search.toLowerCase()) ||
-      place.location.toLowerCase().includes(search.toLowerCase());
+      (place.location && place.location.toLowerCase().includes(search.toLowerCase()));
 
     const matchesCategory =
       selectedCategory === "All" || place.category === selectedCategory;
-      const matchesRegion =
-  selectedRegion === "All" || place.region === selectedRegion;
+    const matchesRegion =
+      selectedRegion === "All" || (place.region && place.region.includes(selectedRegion.toLowerCase()));
     return matchesSearch && matchesCategory && matchesRegion;
   });
 
@@ -212,7 +243,7 @@ const PlacesPage = () => {
       </section>
 
       <p style={{ color: "#647067", marginBottom: "20px" }}>
-        Showing {filteredPlaces.length} of {heritagePlaces.length} places
+        Showing {filteredPlaces.length} of {placesList.length} places
       </p>
 
       {filteredPlaces.length > 0 ? (

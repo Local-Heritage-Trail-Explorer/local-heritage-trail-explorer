@@ -20,6 +20,7 @@ import curatorRouter from "./api/curator.router.js";
 import correctionRouter from "./api/correction.router.js";
 import semanticSearchRouter from "./api/semanticSearch.router.js";
 import chatRouter from "./api/chat.router.js";
+import agentRouter from "./api/agent.router.js";
 
 
 dotenv.config();
@@ -28,10 +29,24 @@ export const createApp = (sessionStore) => {
   const app = express();
 
   // 1. CORS Configuration
-  const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+  const clientOriginEnv = process.env.CLIENT_ORIGIN || "http://localhost:5174";
+  const allowedOrigins = clientOriginEnv.includes(",")
+    ? clientOriginEnv.split(",").map((origin) => origin.trim())
+    : [clientOriginEnv];
+
+  // In development, ensure standard localhost ports are permitted
+  if (process.env.NODE_ENV !== "production") {
+    if (!allowedOrigins.includes("http://localhost:5174")) {
+      allowedOrigins.push("http://localhost:5174");
+    }
+    if (!allowedOrigins.includes("http://127.0.0.1:5174")) {
+      allowedOrigins.push("http://127.0.0.1:5174");
+    }
+  }
+
   app.use(
     cors({
-      origin: clientOrigin,
+      origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
       allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token"],
@@ -58,6 +73,7 @@ export const createApp = (sessionStore) => {
   app.use("/api/corrections", correctionRouter);
   app.use("/api/search", semanticSearchRouter);
   app.use("/api/chat", chatRouter);
+  app.use("/api/trail-agent", agentRouter);
 
 
   // CSRF token retrieval endpoint
@@ -88,7 +104,7 @@ export const createApp = (sessionStore) => {
 const app = createApp(process.env.NODE_ENV === "test" ? new session.MemoryStore() : undefined);
 
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 if (process.env.NODE_ENV !== "test") {
   connectDB().then(() => {
