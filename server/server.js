@@ -19,8 +19,9 @@ import trailRouter from "./api/trail.router.js";
 import curatorRouter from "./api/curator.router.js";
 import correctionRouter from "./api/correction.router.js";
 import semanticSearchRouter from "./api/semanticSearch.router.js";
-import chatRouter from "./api/chat.router.js";
+import chatRouter, { heritageChatRouter } from "./api/chat.router.js";
 import agentRouter from "./api/agent.router.js";
+import guideRouter from "./api/guide.router.js";
 
 
 dotenv.config();
@@ -29,18 +30,18 @@ export const createApp = (sessionStore) => {
   const app = express();
 
   // 1. CORS Configuration
-  const clientOriginEnv = process.env.CLIENT_ORIGIN || "http://localhost:5174";
+  const clientOriginEnv = process.env.CLIENT_ORIGIN || "http://localhost:5185";
   const allowedOrigins = clientOriginEnv.includes(",")
     ? clientOriginEnv.split(",").map((origin) => origin.trim())
     : [clientOriginEnv];
 
   // In development, ensure standard localhost ports are permitted
   if (process.env.NODE_ENV !== "production") {
-    if (!allowedOrigins.includes("http://localhost:5174")) {
-      allowedOrigins.push("http://localhost:5174");
+    if (!allowedOrigins.includes("http://localhost:5185")) {
+      allowedOrigins.push("http://localhost:5185");
     }
-    if (!allowedOrigins.includes("http://127.0.0.1:5174")) {
-      allowedOrigins.push("http://127.0.0.1:5174");
+    if (!allowedOrigins.includes("http://127.0.0.1:5185")) {
+      allowedOrigins.push("http://127.0.0.1:5185");
     }
   }
 
@@ -73,7 +74,10 @@ export const createApp = (sessionStore) => {
   app.use("/api/corrections", correctionRouter);
   app.use("/api/search", semanticSearchRouter);
   app.use("/api/chat", chatRouter);
+  app.use("/api/heritage-chat", heritageChatRouter);
   app.use("/api/trail-agent", agentRouter);
+  app.use("/api/agent", agentRouter);
+  app.use("/api/guide", guideRouter);
 
 
   // CSRF token retrieval endpoint
@@ -104,7 +108,7 @@ export const createApp = (sessionStore) => {
 const app = createApp(process.env.NODE_ENV === "test" ? new session.MemoryStore() : undefined);
 
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5055;
 
 if (process.env.NODE_ENV !== "test") {
   connectDB().then(() => {

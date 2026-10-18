@@ -1,10 +1,33 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import { createApp } from "../server.js";
 import connectDB, { disconnectDB } from "../config/database.js";
+import { Chunk } from "../models/chunk.model.js";
 
 describe("Semantic Search API Endpoint (POST /api/search/semantic)", () => {
   let app;
+  const originalAggregate = Chunk.aggregate;
+
+  const mockChunkPassages = [
+    {
+      storyId: "507f1f77bcf86cd799439001",
+      placeId: "507f1f77bcf86cd799439011",
+      title: "Dynastic Patronage of the Ananda Nilayam",
+      chunkIndex: 0,
+      content: "Emperor Sri Krishnadevaraya of the Vijayanagara Empire made multiple pilgrimages to the Tirumala temple, donating pure gold to coat the Ananda Nilaya vimana.",
+      sourceUrl: "https://ttd.example.com/inscriptions/krishnadevaraya",
+      score: 0.9234,
+    },
+    {
+      storyId: "507f1f77bcf86cd799439002",
+      placeId: "507f1f77bcf86cd799439012",
+      title: "Ancient Epigraphs of Pallava and Chola Rulers",
+      chunkIndex: 0,
+      content: "Inscriptions dating back to the 9th century record land grants by Queen Samavai and Chola kings to perpetual lamps in the sanctum sanctorum.",
+      sourceUrl: "https://ttd.example.com/inscriptions/chola-grants",
+      score: 0.8812,
+    },
+  ];
 
   beforeAll(async () => {
     await connectDB();
@@ -13,6 +36,19 @@ describe("Semantic Search API Endpoint (POST /api/search/semantic)", () => {
 
   afterAll(async () => {
     await disconnectDB();
+  });
+
+  beforeEach(() => {
+    Chunk.aggregate = async (pipeline) => {
+      // Respect pipeline limit if set
+      const vectorStage = pipeline.find((stage) => stage.$vectorSearch);
+      const limit = vectorStage?.$vectorSearch?.limit || mockChunkPassages.length;
+      return mockChunkPassages.slice(0, limit);
+    };
+  });
+
+  afterEach(() => {
+    Chunk.aggregate = originalAggregate;
   });
 
   it("should retrieve relevant story passages for a valid semantic query", async () => {
@@ -90,11 +126,11 @@ describe("Semantic Search API Endpoint (POST /api/search/semantic)", () => {
       .post("/api/search/semantic")
       .send({
         query: "water springs and sacred waterfalls",
-        limit: 2,
+        limit: 1,
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.results.length).toBeLessThanOrEqual(2);
+    expect(res.body.results.length).toBeLessThanOrEqual(1);
   });
 
   it("should support GET /api/search/semantic for quick testing", async () => {

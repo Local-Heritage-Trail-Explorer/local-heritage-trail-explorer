@@ -1,7 +1,14 @@
 import { Router } from "express";
-import { getApprovedStoryById, getApprovedStories } from "../services/story.service.js";
-import { validateParams } from "../middlewares/validate.middleware.js";
+import {
+  getApprovedStoryById,
+  getApprovedStories,
+  reviewStoryApproval,
+} from "../services/story.service.js";
+import { validateParams, validate } from "../middlewares/validate.middleware.js";
+import { requireAuth } from "../middlewares/auth.middleware.js";
+import { requireRole } from "../middlewares/role.middleware.js";
 import { idParamSchema } from "../validators/common.schema.js";
+import { reviewDecisionSchema } from "../validators/curator.schema.js";
 
 const router = Router();
 
@@ -11,8 +18,8 @@ const router = Router();
  */
 router.get("/", async (req, res, next) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const stories = await getApprovedStories({ page, limit });
+    const { page = 1, limit = 50 } = req.query;
+    const stories = await getApprovedStories({ page, limit: parseInt(limit, 10) || 50 });
 
     return res.status(200).json({
       success: true,
@@ -41,5 +48,30 @@ router.get("/:id", validateParams(idParamSchema), async (req, res, next) => {
     next(error);
   }
 });
+
+/**
+ * POST /api/stories/:id/approval
+ * Approve or reject stories (Curator only).
+ */
+router.post(
+  "/:id/approval",
+  requireAuth,
+  requireRole("CURATOR"),
+  validateParams(idParamSchema),
+  validate(reviewDecisionSchema),
+  async (req, res, next) => {
+    try {
+      const result = await reviewStoryApproval(req.params.id, req.body, req.user._id);
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+        error: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default router;

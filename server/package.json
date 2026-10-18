@@ -10,6 +10,7 @@
     "test": "vitest run",
     "ingest": "node scripts/ingestStories.js",
     "expand-stories": "node scripts/expandStories.js",
+    "check-db": "node scripts/checkDb.js",
     "chat": "node tests/chat-cli.js"
   },
   "dependencies": {

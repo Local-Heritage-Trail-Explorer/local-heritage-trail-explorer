@@ -1,4 +1,9 @@
 import { Place } from "../models/place.model.js";
+import { Story } from "../models/story.model.js";
+import { Source } from "../models/source.model.js";
+import { Correction } from "../models/correction.model.js";
+import { EditorialReview } from "../models/editorial-review.model.js";
+import { ApiError } from "../middlewares/error.middleware.js";
 
 /**
  * Get approved places for public browsing with optional theme filter and pagination
@@ -36,6 +41,183 @@ export const getApprovedPlaces = async ({ theme, page = 1, limit = 10 } = {}) =>
   }));
 };
 
+/**
+ * Get single approved place by ID
+ * @param {string} id
+ * @returns {Promise<Object>}
+ */
+export const getApprovedPlaceById = async (id) => {
+  const place = await Place.findOne({ _id: id, status: "approved" }).lean();
+  if (!place) {
+    throw new ApiError(404, "PLACE_NOT_FOUND", "Place not found or not approved for public display.");
+  }
+
+  return {
+    id: place._id.toString(),
+    name: place.name,
+    description: place.description,
+    zone: place.zone,
+    themes: place.themes,
+    openingHours: place.openingHours,
+    hoursVerification: place.hoursVerification,
+    estimatedVisitMinutes: place.estimatedVisitMinutes,
+    status: place.status,
+  };
+};
+
+/**
+ * Get approved stories associated with a specific place
+ * @param {string} placeId
+ * @returns {Promise<Array>}
+ */
+export const getApprovedPlaceStories = async (placeId) => {
+  const placeExists = await Place.exists({ _id: placeId, status: "approved" });
+  if (!placeExists) {
+    throw new ApiError(404, "PLACE_NOT_FOUND", "Place not found or not approved for public display.");
+  }
+
+  const stories = await Story.find({ placeId, status: "approved" })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const allSourceIds = [
+    ...new Set(
+      stories.flatMap((s) => (s.sourceIds || []).map((id) => id.toString()))
+    ),
+  ];
+
+  const sources = await Source.find({
+    _id: { $in: allSourceIds },
+    status: "approved",
+  }).lean();
+
+  const sourceMap = new Map(sources.map((s) => [s._id.toString(), s]));
+
+  return stories.map((s) => ({
+    _id: s._id.toString(),
+    id: s._id.toString(),
+    title: s.title,
+    content: s.content,
+    claimType: s.claimType,
+    status: s.status,
+    sources: (s.sourceIds || [])
+      .map((id) => sourceMap.get(id.toString()))
+      .filter(Boolean)
+      .map((src) => ({
+        id: src._id.toString(),
+        title: src.title,
+        attribution: src.attribution,
+        sourceType: src.sourceType,
+        url: src.url || null,
+      })),
+  }));
+};
+
+/**
+ * Submit a correction for a heritage place (Visitor or member)
+ * @param {string} placeId
+ * @param {Object} param1
+ * @param {string} userId
+ * @returns {Promise<Object>}
+ */
+export const submitPlaceCorrection = async (
+  placeId,
+  { description, proposedCorrection, evidence },
+  userId
+) => {
+  const place = await Place.findById(placeId);
+  if (!place) {
+    throw new ApiError(404, "PLACE_NOT_FOUND", "Referenced place does not exist.");
+  }
+
+  const desc = description || proposedCorrection;
+  if (!desc || !desc.trim()) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Correction description is required.");
+  }
+
+  const fullDescription = evidence
+    ? `${desc.trim()}\n\nEvidence/Supporting Citation: ${evidence.trim()}`
+    : desc.trim();
+
+  const correction = await Correction.create({
+    placeId,
+    submittedBy: userId,
+    description: fullDescription,
+    status: "pending",
+  });
+
+  return {
+    id: correction._id.toString(),
+    placeId: correction.placeId.toString(),
+    submittedBy: correction.submittedBy.toString(),
+    description: correction.description,
+    status: correction.status,
+    createdAt: correction.createdAt,
+  };
+};
+
+/**
+ * Update factual place records (Curator only)
+ * @param {string} placeId
+ * @param {Object} updateData
+ * @param {string} curatorId
+ * @returns {Promise<Object>}
+ */
+export const updatePlaceFactual = async (placeId, updateData, curatorId) => {
+  const place = await Place.findById(placeId);
+  if (!place) {
+    throw new ApiError(404, "PLACE_NOT_FOUND", "Place not found.");
+  }
+
+  const permitted = [
+    "name",
+    "description",
+    "zone",
+    "themes",
+    "openingHours",
+    "hoursVerification",
+    "estimatedVisitMinutes",
+    "status",
+  ];
+
+  const updateDoc = {};
+  for (const key of permitted) {
+    if (updateData[key] !== undefined) {
+      updateDoc[key] = updateData[key];
+    }
+  }
+
+  const updated = await Place.findByIdAndUpdate(
+    placeId,
+    { $set: updateDoc },
+    { new: true, runValidators: true }
+  ).lean();
+
+  await EditorialReview.create({
+    resourceId: place._id,
+    resourceType: "Place",
+    reviewedBy: curatorId,
+    decision: "updated_factual_record",
+  });
+
+  return {
+    _id: updated._id.toString(),
+    id: updated._id.toString(),
+    name: updated.name,
+    description: updated.description,
+    zone: updated.zone,
+    themes: updated.themes,
+    openingHours: updated.openingHours,
+    hoursVerification: updated.hoursVerification,
+    estimatedVisitMinutes: updated.estimatedVisitMinutes,
+    status: updated.status,
+  };
+};
+
 export default {
   getApprovedPlaces,
+  getApprovedPlaceById,
+  getApprovedPlaceStories,
+  submitPlaceCorrection,
+  updatePlaceFactual,
 };

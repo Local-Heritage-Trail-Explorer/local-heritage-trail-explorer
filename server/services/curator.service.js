@@ -685,6 +685,76 @@ export const reviewTrail = async (id, { status, notes }, reviewerId) => {
   };
 };
 
+/**
+ * 7. CURATOR REVIEW QUEUE
+ * Aggregates all pending items requiring curator editorial attention
+ */
+export const getReviewQueue = async () => {
+  const [trails, corrections, sources, stories] = await Promise.all([
+    Trail.find({ status: { $in: ["pending_review", "pending"] } })
+      .populate("ownerId", "name email role")
+      .sort({ createdAt: -1 })
+      .lean(),
+    Correction.find({ status: { $in: ["pending", "pending_review"] } })
+      .populate("placeId", "name zone")
+      .populate("submittedBy", "name email")
+      .sort({ createdAt: -1 })
+      .lean(),
+    Source.find({ status: { $in: ["pending", "pending_review", "draft"] } })
+      .sort({ createdAt: -1 })
+      .lean(),
+    Story.find({ status: { $in: ["pending", "pending_review", "draft"] } })
+      .populate("placeId", "name")
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  return {
+    trails: (trails || []).map((t) => ({
+      _id: t._id.toString(),
+      id: t._id.toString(),
+      title: t.title,
+      theme: t.theme,
+      status: t.status,
+      estimatedMinutes: t.estimatedMinutes,
+      submittedBy: {
+        id: t.ownerId?._id?.toString() || t.ownerId?.toString() || null,
+        name: t.ownerId?.name || "Author",
+        email: t.ownerId?.email,
+      },
+      createdAt: t.createdAt,
+    })),
+    corrections: (corrections || []).map((c) => ({
+      _id: c._id.toString(),
+      id: c._id.toString(),
+      title: c.title || (c.placeId?.name ? `Correction for ${c.placeId.name}` : "Fact Correction"),
+      description: c.description || c.proposedCorrection || "",
+      placeName: c.placeId?.name || null,
+      status: c.status,
+      submittedBy: c.submittedBy ? { name: c.submittedBy.name, email: c.submittedBy.email } : null,
+      createdAt: c.createdAt,
+    })),
+    sources: (sources || []).map((s) => ({
+      _id: s._id.toString(),
+      id: s._id.toString(),
+      title: s.title,
+      attribution: s.attribution,
+      status: s.status,
+      sourceType: s.sourceType,
+      createdAt: s.createdAt,
+    })),
+    stories: (stories || []).map((s) => ({
+      _id: s._id.toString(),
+      id: s._id.toString(),
+      title: s.title,
+      placeName: s.placeId?.name,
+      status: s.status,
+      claimType: s.claimType,
+      createdAt: s.createdAt,
+    })),
+  };
+};
+
 export default {
   createPlace,
   getCuratorPlaces,
@@ -705,4 +775,5 @@ export default {
   getCuratorTrails,
   getCuratorTrailById,
   reviewTrail,
+  getReviewQueue,
 };

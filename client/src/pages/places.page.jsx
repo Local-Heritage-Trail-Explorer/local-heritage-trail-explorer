@@ -115,7 +115,7 @@ const PlacesPage = () => {
   useEffect(() => {
     let isMounted = true;
     placeService
-      .getPlaces()
+      .getPlaces({ limit: 50 })
       .then((res) => {
         if (!isMounted) return;
         const apiPlaces = res?.data || res;

@@ -1,189 +1,380 @@
 import mongoose from "mongoose";
 import { Place } from "../models/place.model.js";
-import { Trail } from "../models/trail.model.js";
+import { Path } from "../models/path.model.js";
+import { searchPlaces } from "../tools/search-places.tool.js";
+import { checkVisitingHours } from "../tools/check-visiting-hours.tool.js";
+import { calculateTrail } from "../tools/calculate-trail.tool.js";
 import { generateWithOllama } from "./llm.service.js";
 
 // Curated fallback heritage places for development or test environments
-const DEFAULT_HERITAGE_PLACES = [
+export const DEFAULT_HERITAGE_PLACES = [
   {
     _id: "660c00000000000000000001",
+    id: "660c00000000000000000001",
     name: "Sri Venkateswara Temple",
     category: "Temple",
     zone: "Tirumala Hills",
-    estimatedVisitMinutes: 90,
+    themes: ["sacred", "architecture", "history"],
+    estimatedVisitMinutes: 45,
     historicalSignificance: "Ancient Vaishnavite shrine atop the seven hills of Seshachalam.",
+    openingHours: { open: "06:00", close: "21:00" },
+    hoursVerification: "verified",
     status: "approved",
   },
   {
     _id: "660c00000000000000000002",
+    id: "660c00000000000000000002",
     name: "Swami Pushkarini",
     category: "Sacred Site",
     zone: "Tirumala Hills",
-    estimatedVisitMinutes: 30,
+    themes: ["sacred", "nature", "water"],
+    estimatedVisitMinutes: 20,
     historicalSignificance: "Holy temple tank adjacent to the main sanctum.",
+    openingHours: { open: "06:00", close: "20:00" },
+    hoursVerification: "verified",
     status: "approved",
   },
   {
     _id: "660c00000000000000000003",
+    id: "660c00000000000000000003",
     name: "Sri Bedi Anjaneyaswami Temple",
     category: "Temple",
     zone: "Tirumala Hills",
-    estimatedVisitMinutes: 30,
+    themes: ["sacred", "architecture"],
+    estimatedVisitMinutes: 20,
     historicalSignificance: "Historic Hanuman temple facing the Mahadwaram.",
+    openingHours: { open: "06:00", close: "20:00" },
+    hoursVerification: "verified",
     status: "approved",
   },
   {
     _id: "660c00000000000000000004",
+    id: "660c00000000000000000004",
     name: "Kapila Theertham",
     category: "Sacred Site",
     zone: "Tirupati Foothills",
-    estimatedVisitMinutes: 45,
+    themes: ["sacred", "nature", "water"],
+    estimatedVisitMinutes: 25,
     historicalSignificance: "Only Shiva temple in Tirupati, located at the sacred waterfall.",
+    openingHours: { open: "06:00", close: "19:00" },
+    hoursVerification: "verified",
     status: "approved",
   },
   {
     _id: "660c00000000000000000005",
+    id: "660c00000000000000000005",
     name: "Chandragiri Fort & Palaces",
     category: "Historic Site",
     zone: "Chandragiri",
-    estimatedVisitMinutes: 90,
+    themes: ["architecture", "history", "monument"],
+    estimatedVisitMinutes: 40,
     historicalSignificance: "11th-century fort and fourth capital of the Vijayanagara Empire.",
+    openingHours: { open: "08:00", close: "17:30" },
+    hoursVerification: "verified",
     status: "approved",
   },
   {
     _id: "660c00000000000000000006",
+    id: "660c00000000000000000006",
     name: "Sri Govindaraja Swamy Temple",
     category: "Temple",
     zone: "Tirupati City",
-    estimatedVisitMinutes: 60,
+    themes: ["sacred", "architecture", "history"],
+    estimatedVisitMinutes: 30,
     historicalSignificance: "Consecrated by Saint Ramanujacharya in 1130 CE.",
+    openingHours: { open: "06:00", close: "20:30" },
+    hoursVerification: "verified",
+    status: "approved",
+  },
+  {
+    _id: "660c00000000000000000007",
+    id: "660c00000000000000000007",
+    name: "Silathoranam (Natural Rock Arch)",
+    category: "Geological Monument",
+    zone: "Tirumala Hills",
+    themes: ["nature", "geology", "monument"],
+    estimatedVisitMinutes: 25,
+    historicalSignificance: "Pre-Cambrian natural rock arch of great geological antiquity.",
+    openingHours: { open: "06:00", close: "18:00" },
+    hoursVerification: "verified",
     status: "approved",
   },
 ];
 
 /**
- * Retrieves candidate places for trail planning from MongoDB,
- * falling back to curated defaults if the database is unpopulated.
+ * Retrieves candidate places from database, falling back to curated defaults
  */
 export async function getCandidatePlaces(filter = {}) {
-  // If not connected to a live database, immediately return curated defaults
-  if (mongoose.connection.readyState !== 1) {
-    return DEFAULT_HERITAGE_PLACES;
-  }
-
   try {
-    const query = { status: "approved", ...filter };
-    const places = await Place.find(query).lean();
+    const places = await Place.find({ status: "approved", ...filter }).lean();
     if (places && places.length > 0) {
       return places;
     }
   } catch {
-    // Database query failed; use curated in-memory places
+    // Database fallback
   }
   return DEFAULT_HERITAGE_PLACES;
 }
 
 /**
- * Generates an intelligent, optimized heritage trail itinerary based on user preferences.
+ * Generates an intelligent, deterministic heritage trail itinerary.
+ *
+ * Workflow:
+ * 1. searchPlaces(theme, zone) -> retrieve relevant candidates
+ * 2. checkVisitingHours(ids, date) -> identify open vs closed places
+ * 3. Handle closures deterministically: exclude closed sites, substitute open alternatives
+ * 4. calculateTrail(ids, start, duration) -> compute realistic walking + visit schedule
+ * 5. Explain substitutions and selections
+ * 6. Synthesize AI narrative overview
  *
  * @param {object} options
- * @param {string} [options.theme="Sacred Heritage"] - Desired trail theme
- * @param {number} [options.maxMinutes=240] - Maximum total time budget
- * @param {Array<string>} [options.preferredPlaceIds=[]] - Specific places to prioritize
- * @param {string} [options.startZone] - Preferred starting zone
- * @param {string} [options.userPrompt] - Freeform visitor interests or requests
- * @returns {Promise<object>} The generated trail itinerary
+ * @param {string} [options.theme="Sacred Heritage"]
+ * @param {number} [options.maxMinutes=90]
+ * @param {Array<string>} [options.preferredPlaceIds=[]]
+ * @param {string} [options.startZone=null]
+ * @param {string} [options.userPrompt=""]
+ * @param {string|Date} [options.date=new Date()]
+ * @returns {Promise<object>}
  */
 export async function generateTrailPlan({
   theme = "Sacred Heritage",
-  maxMinutes = 240,
+  maxMinutes = 90,
   preferredPlaceIds = [],
   startZone = null,
   userPrompt = "",
+  date = new Date(),
 } = {}) {
-  const allPlaces = await getCandidatePlaces();
+  const budget = Math.max(30, parseInt(maxMinutes, 10) || 90);
+  const targetDate = date ? new Date(date) : new Date();
 
-  // 1. Prioritize preferred places
-  const preferredSet = new Set(preferredPlaceIds.map((id) => id?.toString()));
-  const prioritized = [];
-  const others = [];
+  const toolStatus = {
+    searchPlaces: "pending",
+    checkVisitingHours: "pending",
+    calculateTrail: "pending",
+  };
 
-  for (const place of allPlaces) {
-    const idStr = place._id?.toString() || place.id?.toString();
-    if (preferredSet.has(idStr)) {
-      prioritized.push(place);
-    } else {
-      others.push(place);
+  // -------------------------------------------------------------
+  // Step 1: Tool searchPlaces
+  // -------------------------------------------------------------
+  let candidatePlaces = [];
+  try {
+    candidatePlaces = await searchPlaces({
+      theme,
+      zone: startZone,
+      preferredPlaceIds,
+      query: userPrompt,
+    });
+    toolStatus.searchPlaces = "success";
+  } catch (err) {
+    toolStatus.searchPlaces = "fallback";
+    candidatePlaces = DEFAULT_HERITAGE_PLACES;
+  }
+
+  if (!candidatePlaces || candidatePlaces.length === 0) {
+    candidatePlaces = DEFAULT_HERITAGE_PLACES;
+  }
+
+  // -------------------------------------------------------------
+  // Step 2: Tool checkVisitingHours
+  // -------------------------------------------------------------
+  const candidateIds = candidatePlaces.map((p) => p._id?.toString() || p.id?.toString());
+  let hoursResult = { openPlaces: [], closedPlaces: [] };
+
+  try {
+    hoursResult = await checkVisitingHours({
+      placeIds: candidateIds,
+      date: targetDate,
+    });
+    toolStatus.checkVisitingHours = "success";
+  } catch (err) {
+    toolStatus.checkVisitingHours = "fallback";
+    // Check locally from candidate data
+    for (const p of candidatePlaces) {
+      if (p.openingHours?.isClosed === true || p.hoursVerification === "closed") {
+        hoursResult.closedPlaces.push({
+          ...p,
+          id: p._id?.toString() || p.id?.toString(),
+          isOpen: false,
+          closureReason: "Scheduled closure / maintenance",
+        });
+      } else {
+        hoursResult.openPlaces.push({
+          ...p,
+          id: p._id?.toString() || p.id?.toString(),
+          isOpen: true,
+        });
+      }
     }
   }
 
-  // 2. Filter others by theme or zone relevance if specified
-  const themeLower = (theme || "").toLowerCase();
-  const sortedOthers = others.sort((a, b) => {
-    // Score matches
-    const aMatch = (a.category || "").toLowerCase().includes(themeLower) ||
-      (a.historicalSignificance || "").toLowerCase().includes(themeLower);
-    const bMatch = (b.category || "").toLowerCase().includes(themeLower) ||
-      (b.historicalSignificance || "").toLowerCase().includes(themeLower);
-    if (aMatch && !bMatch) return -1;
-    if (!aMatch && bMatch) return 1;
-    return 0;
-  });
+  // -------------------------------------------------------------
+  // Step 3: Handle Closures & Demonstrate Substitution Case
+  // -------------------------------------------------------------
+  const closedStops = hoursResult.closedPlaces || [];
+  const openCandidates = [...(hoursResult.openPlaces || [])];
+  const substitutions = [];
 
-  const candidates = [...prioritized, ...sortedOthers];
+  // If a closed stop was detected, exclude it and find an open alternative
+  if (closedStops.length > 0) {
+    // Find open alternatives not already in openCandidates
+    const existingOpenIds = new Set(openCandidates.map((p) => p.id));
+    const allApproved = await getCandidatePlaces();
 
-  // 3. Accumulate stops within the time budget
-  const selectedStops = [];
-  let accumulatedMinutes = 0;
-  const budget = Math.max(60, parseInt(maxMinutes, 10) || 240);
+    for (const closedStop of closedStops) {
+      // Find suitable open alternative matching zone or theme
+      const alternative = allApproved.find((p) => {
+        const idStr = p._id?.toString() || p.id?.toString();
+        if (existingOpenIds.has(idStr)) return false;
+        if (p.openingHours?.isClosed === true || p.hoursVerification === "closed") return false;
+        // Same zone preferred
+        return p.zone === closedStop.zone || (p.themes || []).includes(theme.toLowerCase());
+      });
 
-  for (const place of candidates) {
-    const visitTime = place.estimatedVisitMinutes || 45;
-    if (accumulatedMinutes + visitTime <= budget || selectedStops.length < 2) {
-      selectedStops.push(place);
-      accumulatedMinutes += visitTime;
+      if (alternative) {
+        const altId = alternative._id?.toString() || alternative.id?.toString();
+        existingOpenIds.add(altId);
+        openCandidates.push({
+          _id: altId,
+          id: altId,
+          name: alternative.name,
+          zone: alternative.zone,
+          estimatedVisitMinutes: alternative.estimatedVisitMinutes || 25,
+          themes: alternative.themes,
+          openingHours: alternative.openingHours,
+        });
+
+        substitutions.push({
+          closedStop: {
+            id: closedStop.id,
+            name: closedStop.name,
+            reason: closedStop.closureReason,
+          },
+          substituteStop: {
+            id: altId,
+            name: alternative.name,
+          },
+          explanation: `${closedStop.name} is closed on this date (${closedStop.closureReason}). Selected open alternative ${alternative.name} (${alternative.zone}) to maintain route feasibility within ${budget} minutes.`,
+        });
+      } else {
+        substitutions.push({
+          closedStop: {
+            id: closedStop.id,
+            name: closedStop.name,
+            reason: closedStop.closureReason,
+          },
+          explanation: `${closedStop.name} is closed on this date (${closedStop.closureReason}) and was excluded from the route.`,
+        });
+      }
     }
-    if (selectedStops.length >= 6) break;
   }
 
-  // 4. Synthesize AI trail narrative if Ollama is available
-  let narrative = `Experience the ${theme} trail across ${selectedStops.length} historic landmarks, connecting ${selectedStops[0]?.name} to ${selectedStops[selectedStops.length - 1]?.name}. Total estimated time: ${accumulatedMinutes} minutes.`;
+  // If insufficient open stops, fallback to default open places
+  if (openCandidates.length < 2) {
+    for (const defPlace of DEFAULT_HERITAGE_PLACES) {
+      const defId = defPlace._id.toString();
+      if (!openCandidates.some((p) => p.id === defId)) {
+        openCandidates.push({ ...defPlace, id: defId });
+      }
+      if (openCandidates.length >= 3) break;
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Step 4: Tool calculateTrail (Feasible timing & stored walking paths)
+  // -------------------------------------------------------------
+  const candidateIdsForRoute = openCandidates.map((p) => p.id);
+  const startPlaceId = preferredPlaceIds[0] || (openCandidates[0] ? openCandidates[0].id : null);
+
+  let trailCalculation = null;
+  try {
+    trailCalculation = await calculateTrail({
+      placeIds: candidateIdsForRoute,
+      startPlaceId,
+      maxMinutes: budget,
+    });
+    toolStatus.calculateTrail = "success";
+  } catch (err) {
+    toolStatus.calculateTrail = "fallback";
+    // Deterministic fallback
+    let accTime = 0;
+    const selected = [];
+    for (const p of openCandidates) {
+      const visit = p.estimatedVisitMinutes || 25;
+      if (accTime + visit <= budget || selected.length < 2) {
+        selected.push({
+          id: p.id,
+          name: p.name,
+          zone: p.zone,
+          estimatedVisitMinutes: visit,
+          walkingToNext: 10,
+        });
+        accTime += visit + 10;
+      }
+      if (selected.length >= 4) break;
+    }
+    trailCalculation = {
+      feasible: selected.length >= 2,
+      totalEstimatedMinutes: accTime,
+      totalWalkingMinutes: (selected.length - 1) * 10,
+      totalVisitMinutes: accTime - (selected.length - 1) * 10,
+      stops: selected,
+      rejectedStops: [],
+    };
+  }
+
+  const finalStops = trailCalculation.stops || [];
+  const totalMinutes = trailCalculation.totalEstimatedMinutes || budget;
+
+  // -------------------------------------------------------------
+  // Step 5: Synthesize AI Narrative Overview
+  // -------------------------------------------------------------
+  let narrative = `Curated ${theme} walking trail spanning ${finalStops.length} heritage landmarks, starting at ${finalStops[0]?.name || "Heritage Precinct"} and concluding at ${finalStops[finalStops.length - 1]?.name || "Heritage Site"}. Total planned duration: ~${totalMinutes} minutes.`;
 
   if (process.env.NODE_ENV !== "test") {
     try {
-      const prompt = `You are a heritage trail curator for historic Tirumala and Tirupati.
-Create an engaging 2-3 sentence overview for a heritage trail with the following details:
+      const prompt = `You are an expert heritage trail curator for Tirumala and Tirupati.
+Create an engaging 2-3 sentence overview for a heritage walking trail with:
 Theme: ${theme}
-Stops: ${selectedStops.map((s, i) => `${i + 1}. ${s.name} (${s.zone || "Heritage Zone"})`).join("; ")}
-Estimated Duration: ${accumulatedMinutes} minutes
-Visitor Interests: ${userPrompt || "Historical discovery and heritage architecture"}
+Stops: ${finalStops.map((s, i) => `${i + 1}. ${s.name} (${s.zone || "Heritage Zone"})`).join("; ")}
+Total Duration: ${totalMinutes} minutes
+Visitor Notes: ${userPrompt || "Historical discovery and heritage architecture"}
+${substitutions.length > 0 ? `Substitutions Made: ${substitutions.map((s) => s.explanation).join(" ")}` : ""}
 
-Respond with just the descriptive trail overview.`;
+Provide only the engaging overview.`;
 
       const aiResponse = await generateWithOllama(prompt, { timeoutMs: 5000 });
       if (aiResponse && aiResponse.trim().length > 20) {
         narrative = aiResponse.trim();
       }
     } catch {
-      // Fallback narrative remains active
+      // Retain deterministic narrative
     }
   }
 
-  const title = `${theme}: ${selectedStops[0]?.name || "Heritage"} Circuit`;
+  const title = `${theme}: ${finalStops[0]?.name || "Heritage"} Trail`;
 
   return {
     title,
     theme,
-    estimatedMinutes: accumulatedMinutes,
-    stops: selectedStops.map((s) => s._id?.toString() || s.id?.toString()),
-    stopDetails: selectedStops.map((s) => ({
-      id: s._id?.toString() || s.id?.toString(),
+    estimatedMinutes: totalMinutes,
+    stops: finalStops.map((s) => s.id),
+    stopDetails: finalStops.map((s) => ({
+      id: s.id,
       name: s.name,
-      category: s.category,
       zone: s.zone,
-      estimatedVisitMinutes: s.estimatedVisitMinutes || 45,
-      historicalSignificance: s.historicalSignificance,
+      estimatedVisitMinutes: s.estimatedVisitMinutes,
+      walkingToNext: s.walkingToNext || 0,
     })),
+    toolStatus,
+    feasibility: {
+      isFeasible: trailCalculation.feasible,
+      budgetMinutes: budget,
+      totalEstimatedMinutes: totalMinutes,
+      totalWalkingMinutes: trailCalculation.totalWalkingMinutes || 0,
+      totalVisitMinutes: trailCalculation.totalVisitMinutes || 0,
+      rejectedStops: trailCalculation.rejectedStops || [],
+    },
+    substitutions,
     narrative,
     generatedAt: new Date().toISOString(),
   };

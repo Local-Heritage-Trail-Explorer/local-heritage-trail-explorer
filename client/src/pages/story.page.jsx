@@ -50,7 +50,7 @@ export const StoryPage = () => {
   useEffect(() => {
     let isMounted = true;
     storyService
-      .getStories()
+      .getStories({ limit: 50 })
       .then((res) => {
         if (!isMounted) return;
         const data = res?.data || res;

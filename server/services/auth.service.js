@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
+import StaffInvitation from "../models/staff-invitation.model.js";
 import emailService from "./email.service.js";
 
 const hashToken = (token) => {
@@ -214,6 +215,164 @@ class AuthService {
         email: user.email,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
+      },
+    };
+  }
+
+  async createStaffInvitation({ email, role, invitedById, expiresInDays = 7 }) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const upperRole = role.toUpperCase().trim();
+
+    if (!["CURATOR", "GUIDE"].includes(upperRole)) {
+      const error = new Error("Staff role must be CURATOR or GUIDE.");
+      error.statusCode = 400;
+      error.code = "INVALID_ROLE";
+      throw error;
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
+
+    const invitation = new StaffInvitation({
+      email: normalizedEmail,
+      role: upperRole,
+      tokenHash,
+      expiresAt,
+      invitedBy: invitedById || null,
+      used: false,
+    });
+
+    await invitation.save();
+
+    return {
+      invitationToken: rawToken,
+      email: normalizedEmail,
+      role: upperRole,
+      expiresAt,
+      message: `Staff invitation created successfully for ${normalizedEmail} as ${upperRole}.`,
+    };
+  }
+
+  async acceptStaffInvitation({ token, name, password }) {
+    if (!token || typeof token !== "string") {
+      const error = new Error("Invitation token is required.");
+      error.statusCode = 400;
+      error.code = "INVALID_TOKEN";
+      throw error;
+    }
+
+    const tokenHash = hashToken(token.trim());
+
+    // Atomic consumption of token
+    const invitation = await StaffInvitation.findOneAndUpdate(
+      {
+        tokenHash,
+        used: false,
+        expiresAt: { $gt: new Date() },
+      },
+      {
+        $set: {
+          used: true,
+          usedAt: new Date(),
+        },
+      },
+      { new: true }
+    );
+
+    if (!invitation) {
+      const error = new Error("Invalid, expired, or already used staff invitation token.");
+      error.statusCode = 400;
+      error.code = "INVALID_INVITATION";
+      throw error;
+    }
+
+    let user = await User.findOne({ email: invitation.email });
+
+    if (user) {
+      user.role = invitation.role;
+      user.isEmailVerified = true;
+      if (password) {
+        user.passwordHash = await bcrypt.hash(password, 12);
+      }
+      if (name) {
+        user.name = name.trim();
+      }
+      await user.save();
+    } else {
+      if (!password || password.length < 8) {
+        const error = new Error("Password of at least 8 characters is required to activate new staff account.");
+        error.statusCode = 400;
+        error.code = "PASSWORD_TOO_SHORT";
+        throw error;
+      }
+      const passwordHash = await bcrypt.hash(password, 12);
+      user = new User({
+        name: (name || invitation.email.split("@")[0]).trim(),
+        email: invitation.email,
+        passwordHash,
+        role: invitation.role,
+        isEmailVerified: true,
+      });
+      await user.save();
+    }
+
+    return {
+      message: `Staff invitation accepted. Your account is now active with role ${invitation.role}.`,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+      },
+    };
+  }
+
+  async bootstrapFirstStaff({ bootstrapKey, email, name, password, role = "CURATOR" }) {
+    const validKey =
+      process.env.BOOTSTRAP_KEY || process.env.SESSION_SECRET || "heritage-secure-bootstrap-key";
+
+    const curatorCount = await User.countDocuments({ role: "CURATOR" });
+
+    // Allow bootstrap if matching key is provided OR if zero curators currently exist
+    if (bootstrapKey !== validKey && curatorCount > 0) {
+      const error = new Error("Forbidden. Authorized bootstrap key required to initialize staff roles.");
+      error.statusCode = 403;
+      error.code = "FORBIDDEN";
+      throw error;
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const upperRole = role.toUpperCase().trim();
+
+    let user = await User.findOne({ email: normalizedEmail });
+    if (user) {
+      user.role = upperRole;
+      user.isEmailVerified = true;
+      if (password) {
+        user.passwordHash = await bcrypt.hash(password, 12);
+      }
+      await user.save();
+    } else {
+      const passwordHash = await bcrypt.hash(password, 12);
+      user = new User({
+        name: (name || "Curator Administrator").trim(),
+        email: normalizedEmail,
+        passwordHash,
+        role: upperRole,
+        isEmailVerified: true,
+      });
+      await user.save();
+    }
+
+    return {
+      message: `Staff role ${upperRole} initialized successfully for ${normalizedEmail}.`,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
     };
   }

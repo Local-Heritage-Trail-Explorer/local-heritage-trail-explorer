@@ -87,7 +87,7 @@ router.post("/", requireAuth, validate(createTrailSchema), async (req, res, next
  * GET /api/trails/mine
  * List trails belonging to the authenticated user
  */
-router.get("/mine", requireAuth, validateQuery(trailQuerySchema), async (req, res, next) => {
+const handleGetUserTrails = async (req, res, next) => {
   try {
     const { page, limit } = req.query;
     const trails = await trailService.getUserTrails({
@@ -104,7 +104,10 @@ router.get("/mine", requireAuth, validateQuery(trailQuerySchema), async (req, re
   } catch (error) {
     next(error);
   }
-});
+};
+
+router.get("/mine", requireAuth, validateQuery(trailQuerySchema), handleGetUserTrails);
+router.get("/my", requireAuth, validateQuery(trailQuerySchema), handleGetUserTrails);
 
 /**
  * GET /api/trails/:id
@@ -250,28 +253,26 @@ router.patch(
  * POST /api/trails/:id/publish-request
  * Submit a publication review request for an owned trail
  */
-router.post(
-  "/:id/publish-request",
-  requireAuth,
-  validateParams(idParamSchema),
-  async (req, res, next) => {
-    try {
-      const trail = await trailService.requestTrailPublication({
-        trailId: req.params.id,
-        userId: req.user._id,
-        user: req.user,
-      });
+const handleRequestTrailPublication = async (req, res, next) => {
+  try {
+    const trail = await trailService.requestTrailPublication({
+      trailId: req.params.id,
+      userId: req.user._id,
+      user: req.user,
+    });
 
-      return res.status(200).json({
-        success: true,
-        data: trail,
-        error: null,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return res.status(200).json({
+      success: true,
+      data: trail,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
   }
-);
+};
+
+router.post("/:id/publish-request", requireAuth, validateParams(idParamSchema), handleRequestTrailPublication);
+router.post("/:id/publication-request", requireAuth, validateParams(idParamSchema), handleRequestTrailPublication);
 
 /**
  * POST /api/trails/:id/share-request

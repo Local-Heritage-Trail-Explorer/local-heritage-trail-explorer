@@ -25,7 +25,7 @@ cp .env.example .env
 ```
 Ensure `.env` contains the required variables:
 ```env
-PORT=5001
+PORT=5055
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/heritage_trail?retryWrites=true&w=majority
 NODE_ENV=development
 ```

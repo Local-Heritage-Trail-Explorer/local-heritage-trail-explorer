@@ -209,7 +209,7 @@ router.get("/corrections/:id", validateParams(idParamSchema), async (req, res, n
   }
 });
 
-router.patch("/corrections/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), async (req, res, next) => {
+const handleReviewCorrection = async (req, res, next) => {
   try {
     const result = await curatorService.reviewCorrection(req.params.id, req.body, req.user._id);
     return res.status(200).json({
@@ -220,7 +220,10 @@ router.patch("/corrections/:id/review", validateParams(idParamSchema), validate(
   } catch (error) {
     next(error);
   }
-});
+};
+
+router.patch("/corrections/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewCorrection);
+router.post("/corrections/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewCorrection);
 
 // ==========================================
 // 5. TRAIL FEEDBACK REVIEW
@@ -297,6 +300,19 @@ const handleReviewTrail = async (req, res, next) => {
   }
 };
 
+router.get("/review-queue", async (req, res, next) => {
+  try {
+    const queue = await curatorService.getReviewQueue();
+    return res.status(200).json({
+      success: true,
+      data: queue,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/trails", validateQuery(curatorListQuerySchema), handleGetCuratorTrails);
 router.get("/guides", validateQuery(curatorListQuerySchema), handleGetCuratorTrails);
 
@@ -304,6 +320,9 @@ router.get("/trails/:id", validateParams(idParamSchema), handleGetCuratorTrailBy
 router.get("/guides/:id", validateParams(idParamSchema), handleGetCuratorTrailById);
 
 router.patch("/trails/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewTrail);
+router.post("/trails/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewTrail);
+
 router.patch("/guides/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewTrail);
+router.post("/guides/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewTrail);
 
 export default router;

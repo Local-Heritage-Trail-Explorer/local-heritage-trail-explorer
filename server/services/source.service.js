@@ -35,6 +35,7 @@ export const getApprovedSources = async ({ page = 1, limit = 20 } = {}) => {
     .lean();
 
   return sources.map((s) => ({
+    _id: s._id.toString(),
     id: s._id.toString(),
     title: s.title,
     attribution: s.attribution,
@@ -44,7 +45,31 @@ export const getApprovedSources = async ({ page = 1, limit = 20 } = {}) => {
   }));
 };
 
+/**
+ * Create or upload source material (Curator only)
+ */
+export const createCuratorSource = async (sourceData, curatorId) => {
+  const source = await Source.create({
+    ...sourceData,
+    uploadedBy: curatorId,
+    status: sourceData.status || "pending",
+  });
+
+  return {
+    _id: source._id.toString(),
+    id: source._id.toString(),
+    title: source.title,
+    attribution: source.attribution,
+    sourceType: source.sourceType,
+    url: source.url || null,
+    status: source.status,
+    uploadedBy: curatorId ? curatorId.toString() : null,
+    createdAt: source.createdAt,
+  };
+};
+
 export default {
   getApprovedSourceById,
   getApprovedSources,
+  createCuratorSource,
 };

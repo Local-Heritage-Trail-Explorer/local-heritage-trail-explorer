@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import authService from "../services/auth.service.js";
 import validate from "../middlewares/validate.middleware.js";
 import requireAuth from "../middlewares/auth.middleware.js";
+import { requireRole } from "../middlewares/role.middleware.js";
 import {
   signupSchema,
   verifyEmailSchema,
@@ -154,6 +155,84 @@ authRouter.get("/me", requireAuth, (req, res, next) => {
   try {
     const result = authService.getMe(req.user);
     res.status(200).json({
+      success: true,
+      data: result,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 8. POST /api/auth/staff-invitation
+// Curator only (or bootstrap with x-bootstrap-key)
+authRouter.post("/staff-invitation", async (req, res, next) => {
+  try {
+    const bootstrapKey = req.headers["x-bootstrap-key"];
+    const validKey =
+      process.env.BOOTSTRAP_KEY || process.env.SESSION_SECRET || "heritage-secure-bootstrap-key";
+
+    if (bootstrapKey === validKey) {
+      // Authorized via bootstrap key
+      const result = await authService.createStaffInvitation({
+        ...req.body,
+        invitedById: null,
+      });
+      return res.status(201).json({
+        success: true,
+        data: result,
+        error: null,
+      });
+    }
+
+    // Require logged-in Curator
+    return requireAuth(req, res, () => {
+      requireRole("CURATOR")(req, res, async () => {
+        try {
+          const result = await authService.createStaffInvitation({
+            ...req.body,
+            invitedById: req.user._id,
+          });
+          return res.status(201).json({
+            success: true,
+            data: result,
+            error: null,
+          });
+        } catch (err) {
+          next(err);
+        }
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 9. POST /api/auth/accept-invitation
+// Public single-use token redemption
+authRouter.post("/accept-invitation", async (req, res, next) => {
+  try {
+    const result = await authService.acceptStaffInvitation(req.body);
+    return res.status(200).json({
+      success: true,
+      data: result,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 10. POST /api/auth/bootstrap-staff
+// Restricted system initialization of first Curator
+authRouter.post("/bootstrap-staff", async (req, res, next) => {
+  try {
+    const bootstrapKey = req.headers["x-bootstrap-key"] || req.body.bootstrapKey;
+    const result = await authService.bootstrapFirstStaff({
+      ...req.body,
+      bootstrapKey,
+    });
+    return res.status(200).json({
       success: true,
       data: result,
       error: null,

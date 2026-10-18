@@ -90,23 +90,31 @@ export const updateStorySchema = z.object({
 /**
  * Zod schema for curator review decisions (approve / reject)
  */
-export const reviewDecisionSchema = z.object({
-  status: z.enum(["approved", "rejected"], {
-    required_error: "Decision status must be either 'approved' or 'rejected'",
-  }),
-  notes: z.string().trim().optional(),
-  appliedPlaceUpdates: z
-    .object({
-      name: z.string().trim().min(1).optional(),
-      description: z.string().trim().min(1).optional(),
-      zone: z.string().trim().min(1).optional(),
-      themes: z.array(z.string().trim().min(1)).min(1).optional(),
-      openingHours: z.record(z.any()).optional(),
-      hoursVerification: z.string().trim().min(1).optional(),
-      estimatedVisitMinutes: z.number().int().positive().optional(),
-    })
-    .optional(),
-});
+export const reviewDecisionSchema = z
+  .object({
+    status: z.enum(["approved", "rejected"]).optional(),
+    decision: z.enum(["approved", "rejected"]).optional(),
+    notes: z.string().trim().optional(),
+    appliedPlaceUpdates: z
+      .object({
+        name: z.string().trim().min(1).optional(),
+        description: z.string().trim().min(1).optional(),
+        zone: z.string().trim().min(1).optional(),
+        themes: z.array(z.string().trim().min(1)).min(1).optional(),
+        openingHours: z.record(z.any()).optional(),
+        hoursVerification: z.string().trim().min(1).optional(),
+        estimatedVisitMinutes: z.number().int().positive().optional(),
+      })
+      .optional(),
+  })
+  .refine((data) => data.status || data.decision, {
+    message: "Decision status must be either 'approved' or 'rejected'",
+    path: ["status"],
+  })
+  .transform((data) => ({
+    ...data,
+    status: data.status || data.decision,
+  }));
 
 /**
  * Zod schema for curator listing query parameters
