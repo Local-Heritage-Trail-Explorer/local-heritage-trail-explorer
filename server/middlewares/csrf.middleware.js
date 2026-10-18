@@ -22,9 +22,9 @@ export const csrfProtection = (req, res, next) => {
     req.session.csrfToken = csrfToken;
   }
 
-  // Safe HTTP methods do not require CSRF header validation
+  // Safe HTTP methods and read-only search endpoints do not require CSRF header validation
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
-  if (safeMethods.includes(req.method)) {
+  if (safeMethods.includes(req.method) || req.path.startsWith("/api/search")) {
     return next();
   }
 
