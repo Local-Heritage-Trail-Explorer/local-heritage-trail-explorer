@@ -18,6 +18,8 @@ import sourceRouter from "./api/source.router.js";
 import trailRouter from "./api/trail.router.js";
 import curatorRouter from "./api/curator.router.js";
 import correctionRouter from "./api/correction.router.js";
+import semanticSearchRouter from "./api/semanticSearch.router.js";
+import chatRouter from "./api/chat.router.js";
 
 
 dotenv.config();
@@ -54,6 +56,8 @@ export const createApp = (sessionStore) => {
   app.use("/api/trails", trailRouter);
   app.use("/api/curator", curatorRouter);
   app.use("/api/corrections", correctionRouter);
+  app.use("/api/search", semanticSearchRouter);
+  app.use("/api/chat", chatRouter);
 
 
   // CSRF token retrieval endpoint

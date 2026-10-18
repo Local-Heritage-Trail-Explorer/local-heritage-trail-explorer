@@ -2,10 +2,18 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Embedding configuration (Member 7 - Semantic Search & Vector Retrieval)
 export const OLLAMA_CONFIG = {
   baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
   embedModel: process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text",
   embeddingDimension: parseInt(process.env.EMBEDDING_DIMENSION, 10) || 768,
+};
+
+// Chatbot LLM configuration (Member 8 - Historical RAG Chatbot)
+export const ollamaConfig = {
+  baseUrl: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
+  model: process.env.OLLAMA_MODEL || "llama3.2",
+  timeoutMs: parseInt(process.env.OLLAMA_TIMEOUT_MS, 10) || 60000,
 };
 
 /**
@@ -174,10 +182,15 @@ export const generateBatchEmbeddings = async (texts) => {
   return embeddings;
 };
 
-export default {
+// Reconciled unified export object supporting both LLM chatbot and embedding services
+const unifiedConfig = {
+  ...ollamaConfig,
+  ollamaConfig,
   OLLAMA_CONFIG,
   validateVector,
   checkOllamaHealth,
   generateSingleEmbedding,
   generateBatchEmbeddings,
 };
+
+export default unifiedConfig;
