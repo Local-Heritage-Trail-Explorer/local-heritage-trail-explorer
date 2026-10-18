@@ -1,14 +1,24 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import session from "express-session";
 import dotenv from "dotenv";
+
 
 import connectDB from "./config/database.js";
 import configureSession from "./config/session.js";
 import csrfProtection from "./middlewares/csrf.middleware.js";
-import errorHandler from "./middlewares/error.middleware.js";
+import { errorHandler, notFoundHandler } from "./middlewares/error.middleware.js";
 
 import authRouter from "./api/auth.router.js";
+import healthRouter from "./api/health.router.js";
+import placeRouter from "./api/place.router.js";
+import storyRouter from "./api/story.router.js";
+import sourceRouter from "./api/source.router.js";
+import trailRouter from "./api/trail.router.js";
+import curatorRouter from "./api/curator.router.js";
+import correctionRouter from "./api/correction.router.js";
+
 
 dotenv.config();
 
@@ -37,11 +47,14 @@ export const createApp = (sessionStore) => {
 
   // 4. API Routes
   app.use("/api/auth", authRouter);
+  app.use("/api/health", healthRouter);
+  app.use("/api/places", placeRouter);
+  app.use("/api/stories", storyRouter);
+  app.use("/api/sources", sourceRouter);
+  app.use("/api/trails", trailRouter);
+  app.use("/api/curator", curatorRouter);
+  app.use("/api/corrections", correctionRouter);
 
-  // Health check endpoint
-  app.get("/api/health", (req, res) => {
-    res.status(200).json({ success: true, message: "Local Heritage Trail Explorer API operational" });
-  });
 
   // CSRF token retrieval endpoint
   app.get("/api/csrf-token", (req, res) => {
@@ -53,13 +66,23 @@ export const createApp = (sessionStore) => {
     });
   });
 
-  // 5. Global Error Handler
+  // 5. Undefined routes handler
+  app.use((req, res, next) => {
+    if (process.env.NODE_ENV === "test" && (req.path.startsWith("/api/test-") || req.path.startsWith("/test-"))) {
+      return next();
+    }
+    return notFoundHandler(req, res, next);
+  });
+
+
+  // 6. Global Error Handler
   app.use(errorHandler);
 
   return app;
 };
 
-const app = createApp();
+const app = createApp(process.env.NODE_ENV === "test" ? new session.MemoryStore() : undefined);
+
 
 const PORT = process.env.PORT || 5000;
 
