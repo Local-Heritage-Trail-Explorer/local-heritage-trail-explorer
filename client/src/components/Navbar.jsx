@@ -42,7 +42,7 @@ export const Navbar = () => {
     <nav style={navStyle}>
       <div>
         <Link to="/" style={{ ...linkStyle, fontSize: "1.2rem", fontWeight: "bold", color: "#f6ad55" }}>
-          Tirumala Heritage Explorer
+          Local Heritage Trail Explorer
         </Link>
         <Link to="/places" style={linkStyle}>Places</Link>
         <Link to="/stories" style={linkStyle}>Stories</Link>
