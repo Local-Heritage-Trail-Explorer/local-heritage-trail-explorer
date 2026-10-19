@@ -3,13 +3,14 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-
+import PlacesPage from "./pages/places.page.jsx";
 import HomePage from "./pages/home.page.jsx";
 import LoginPage from "./pages/login.page.jsx";
 import SignupPage from "./pages/signup.page.jsx";
 import VerifyEmailPage from "./pages/verify-email.page.jsx";
 import ForgotPasswordPage from "./pages/forgot-password.page.jsx";
 import ResetPasswordPage from "./pages/reset-password.page.jsx";
+import StoryPage from "./pages/story.page.jsx";
 
 const PlaceholderPage = ({ title }) => (
   <div style={{ padding: "3rem", textAlign: "center", fontFamily: "sans-serif" }}>
@@ -33,8 +34,8 @@ export const App = () => {
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/places" element={<PlaceholderPage title="Heritage Places" />} />
-              <Route path="/stories" element={<PlaceholderPage title="Heritage Stories" />} />
+              <Route path="/places" element={<PlacesPage />} />
+              <Route path="/stories" element={<StoryPage />} />
               <Route path="/trail-planner" element={<PlaceholderPage title="Trail Planner" />} />
 
               {/* Authenticated Visitor Routes */}
