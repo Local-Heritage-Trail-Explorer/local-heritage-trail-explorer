@@ -5,9 +5,24 @@ export const generateCsrfToken = () => {
 };
 
 export const csrfProtection = (req, res, next) => {
-  let csrfToken = req.cookies?.["XSRF-TOKEN"];
-  if (!csrfToken) {
+  let csrfToken;
+
+  if (req.session?.csrfToken) {
+    csrfToken = req.session.csrfToken;
+  } else if (req.cookies?.["XSRF-TOKEN"]) {
+    csrfToken = req.cookies["XSRF-TOKEN"];
+    if (req.session) {
+      req.session.csrfToken = csrfToken;
+    }
+  } else {
     csrfToken = generateCsrfToken();
+    if (req.session) {
+      req.session.csrfToken = csrfToken;
+    }
+  }
+
+  // Ensure client cookie matches the active CSRF token
+  if (req.cookies?.["XSRF-TOKEN"] !== csrfToken) {
     const isProd = process.env.NODE_ENV === "production";
     res.cookie("XSRF-TOKEN", csrfToken, {
       httpOnly: false, // Accessible by client JS to attach to x-csrf-token header
@@ -18,13 +33,14 @@ export const csrfProtection = (req, res, next) => {
   }
 
   req.csrfToken = csrfToken;
-  if (req.session) {
-    req.session.csrfToken = csrfToken;
-  }
 
-  // Safe HTTP methods and read-only search endpoints do not require CSRF header validation
+  // Safe HTTP methods and read-only semantic search query endpoints do not require CSRF header validation
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
-  if (safeMethods.includes(req.method) || req.path.startsWith("/api/search")) {
+  const isReadOnlySearch =
+    req.method === "POST" &&
+    (req.path === "/api/search/semantic" || req.path === "/semantic");
+
+  if (safeMethods.includes(req.method) || isReadOnlySearch) {
     return next();
   }
 
@@ -32,6 +48,7 @@ export const csrfProtection = (req, res, next) => {
 
   if (
     !clientToken ||
+    typeof clientToken !== "string" ||
     !csrfToken ||
     clientToken.length !== csrfToken.length ||
     !crypto.timingSafeEqual(Buffer.from(clientToken), Buffer.from(csrfToken))

@@ -24,8 +24,22 @@ const DAYS_OF_WEEK = [
  */
 export async function checkVisitingHours({ placeIds = [], date = new Date() } = {}) {
   const targetDate = date instanceof Date ? date : new Date(date);
-  const dayName = DAYS_OF_WEEK[targetDate.getDay()] || "monday";
-  const dateStr = targetDate.toISOString().split("T")[0];
+  
+  // Evaluate day-of-week and date consistently in Indian Standard Time (Asia/Kolkata)
+  const istFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    weekday: "long",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = istFormatter.formatToParts(targetDate);
+  const partMap = {};
+  for (const p of parts) {
+    partMap[p.type] = p.value;
+  }
+  const dayName = (partMap.weekday || "monday").toLowerCase();
+  const dateStr = `${partMap.year}-${partMap.month}-${partMap.day}`;
 
   let places = [];
   if (mongoose.connection.readyState === 1) {

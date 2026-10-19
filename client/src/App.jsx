@@ -5,6 +5,7 @@ import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import HomePage from "./pages/home.page.jsx";
 import PlacesPage from "./pages/places.page.jsx";
+import PlaceDetailPage from "./pages/place-detail.page.jsx";
 import StoryPage from "./pages/story.page.jsx";
 import SourcePage from "./pages/source.page.jsx";
 import HeritageChatPage from "./pages/heritage-chat.page.jsx";
@@ -29,6 +30,7 @@ export const App = () => {
               {/* Public Exploration & Informational Routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/places" element={<PlacesPage />} />
+              <Route path="/places/:id" element={<PlaceDetailPage />} />
               <Route path="/stories" element={<StoryPage />} />
               <Route path="/stories/:id" element={<StoryPage />} />
               <Route path="/sources" element={<SourcePage />} />

@@ -37,8 +37,10 @@ const trailSchema = new Schema(
   }
 );
 
-// Index {ownerId: 1, createdAt: -1}
+// Indexes for user trails, public browsing, and review status
 trailSchema.index({ ownerId: 1, createdAt: -1 });
+trailSchema.index({ visibility: 1, status: 1, createdAt: -1 });
+trailSchema.index({ status: 1, createdAt: -1 });
 
 export const Trail = model("Trail", trailSchema);
 export default Trail;

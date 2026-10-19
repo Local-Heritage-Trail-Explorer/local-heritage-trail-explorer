@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Trail } from "../models/trail.model.js";
 import { Place } from "../models/place.model.js";
 import { VisitProgress } from "../models/visit-progress.model.js";
@@ -176,6 +177,29 @@ export const updateTrailProgress = async ({ trailId, userId, placeId }) => {
 };
 
 /**
+ * Retrieve visit progress for a trail for the authenticated user
+ */
+export const getTrailProgress = async ({ trailId, userId }) => {
+  const trail = await Trail.findById(trailId).lean();
+  if (!trail) {
+    throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
+  }
+
+  const progress = await VisitProgress.findOne({ userId, trailId }).lean();
+  const completedPlaceIds = progress?.completedPlaceIds?.map((id) => id.toString()) || [];
+
+  return {
+    trailId: trail._id.toString(),
+    userId: userId.toString(),
+    completedPlaceIds,
+    visitTimestamps: progress?.visitTimestamps || [],
+    totalStops: trail.stops?.length || 0,
+    completedCount: completedPlaceIds.length,
+    isComplete: trail.stops?.length ? completedPlaceIds.length >= trail.stops.length : false,
+  };
+};
+
+/**
  * Submit feedback on a trail
  */
 export const submitTrailFeedback = async ({ trailId, userId, user, description }) => {
@@ -326,14 +350,24 @@ export const getPublishedTrails = async ({ theme, page = 1, limit = 10 } = {}) =
 /**
  * Submit a publication request for an owned trail
  */
-export const requestTrailPublication = async ({ trailId, userId, user }) => {
+export const requestTrailPublication = async (paramsOrTrailId, maybeUserId) => {
+  let trailId;
+  let userId;
+  if (typeof paramsOrTrailId === "object" && paramsOrTrailId !== null && !(paramsOrTrailId instanceof mongoose.Types.ObjectId)) {
+    trailId = paramsOrTrailId.trailId;
+    userId = paramsOrTrailId.userId;
+  } else {
+    trailId = paramsOrTrailId;
+    userId = maybeUserId;
+  }
+
   const trail = await Trail.findById(trailId);
   if (!trail) {
     throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
   }
 
   // Ownership check
-  if (trail.ownerId.toString() !== userId.toString()) {
+  if (userId && trail.ownerId.toString() !== userId.toString()) {
     throw new ApiError(403, "FORBIDDEN", "You can only request publication for your own trails.");
   }
 

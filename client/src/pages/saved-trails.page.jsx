@@ -53,6 +53,28 @@ export const SavedTrailsPage = () => {
     };
   }, []);
 
+  // Isolate and load visit progress per selected trail
+  useEffect(() => {
+    if (!selectedTrail) {
+      setCompletedStops(new Set());
+      return;
+    }
+    const trailId = selectedTrail.id || selectedTrail._id;
+    trailService
+      .getProgress(trailId)
+      .then((res) => {
+        const data = res?.data || res;
+        if (data?.completedPlaceIds) {
+          setCompletedStops(new Set(data.completedPlaceIds.map((id) => id.toString())));
+        } else {
+          setCompletedStops(new Set());
+        }
+      })
+      .catch(() => {
+        setCompletedStops(new Set());
+      });
+  }, [selectedTrail]);
+
   const handleMarkProgress = async (placeId) => {
     if (!selectedTrail) return;
     setIsSubmitting(true);

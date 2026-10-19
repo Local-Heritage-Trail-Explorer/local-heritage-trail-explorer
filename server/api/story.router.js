@@ -49,8 +49,22 @@ router.get("/:id", validateParams(idParamSchema), async (req, res, next) => {
   }
 });
 
+const handleStoryApproval = async (req, res, next) => {
+  try {
+    const result = await reviewStoryApproval(req.params.id, req.body, req.user._id);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
- * POST /api/stories/:id/approval
+ * POST /api/stories/:id/approval and aliases
  * Approve or reject stories (Curator only).
  */
 router.post(
@@ -59,19 +73,34 @@ router.post(
   requireRole("CURATOR"),
   validateParams(idParamSchema),
   validate(reviewDecisionSchema),
-  async (req, res, next) => {
-    try {
-      const result = await reviewStoryApproval(req.params.id, req.body, req.user._id);
+  handleStoryApproval
+);
 
-      return res.status(200).json({
-        success: true,
-        data: result,
-        error: null,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+router.patch(
+  "/:id/approval",
+  requireAuth,
+  requireRole("CURATOR"),
+  validateParams(idParamSchema),
+  validate(reviewDecisionSchema),
+  handleStoryApproval
+);
+
+router.post(
+  "/:id/review",
+  requireAuth,
+  requireRole("CURATOR"),
+  validateParams(idParamSchema),
+  validate(reviewDecisionSchema),
+  handleStoryApproval
+);
+
+router.patch(
+  "/:id/review",
+  requireAuth,
+  requireRole("CURATOR"),
+  validateParams(idParamSchema),
+  validate(reviewDecisionSchema),
+  handleStoryApproval
 );
 
 export default router;

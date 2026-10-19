@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import placeService from "../services/place.service.js";
 
 const heritagePlaces = [
@@ -106,6 +107,26 @@ const categories = [
   "Natural Heritage",
 ];
 
+const inferCategory = (p) => {
+  if (p.category && p.category !== "Heritage Site") return p.category;
+  const themes = (p.themes || []).map((t) => t.toLowerCase());
+  const name = (p.name || "").toLowerCase();
+
+  if (name.includes("temple") || name.includes("swami") || name.includes("swamy") || name.includes("sanctum")) {
+    return "Temple";
+  }
+  if (themes.includes("sacred") || name.includes("theertham") || name.includes("pushkarini")) {
+    return "Sacred Site";
+  }
+  if (themes.includes("nature") || themes.includes("geology") || themes.includes("water") || name.includes("hills") || name.includes("arch")) {
+    return "Natural Heritage";
+  }
+  if (themes.includes("history") || themes.includes("monument") || themes.includes("architecture") || name.includes("fort") || name.includes("palace")) {
+    return "Historic Site";
+  }
+  return "Heritage Site";
+};
+
 const PlacesPage = () => {
   const [placesList, setPlacesList] = useState(heritagePlaces);
   const [search, setSearch] = useState("");
@@ -125,7 +146,8 @@ const PlacesPage = () => {
             id: p._id || p.id,
             name: p.name,
             location: p.zone || p.location || "Tirumala Heritage Region",
-            category: p.category || "Heritage Site",
+            category: inferCategory(p),
+            themes: p.themes || [],
             region: (p.zone || p.location || "tirumala").toLowerCase(),
             description: p.description || p.historicalSignificance || "Historic heritage landmark.",
           }));
@@ -147,7 +169,13 @@ const PlacesPage = () => {
       (place.location && place.location.toLowerCase().includes(search.toLowerCase()));
 
     const matchesCategory =
-      selectedCategory === "All" || place.category === selectedCategory;
+      selectedCategory === "All" ||
+      place.category === selectedCategory ||
+      (selectedCategory === "Temple" && (place.category === "Temple" || (place.name || "").toLowerCase().includes("temple"))) ||
+      (selectedCategory === "Sacred Site" && (place.category === "Sacred Site" || (place.themes || []).includes("sacred"))) ||
+      (selectedCategory === "Natural Heritage" && (place.category === "Natural Heritage" || (place.themes || []).some((t) => ["nature", "geology", "water"].includes(t.toLowerCase())))) ||
+      (selectedCategory === "Historic Site" && (place.category === "Historic Site" || (place.themes || []).some((t) => ["history", "monument", "architecture"].includes(t.toLowerCase()))));
+
     const matchesRegion =
       selectedRegion === "All" || (place.region && place.region.includes(selectedRegion.toLowerCase()));
     return matchesSearch && matchesCategory && matchesRegion;
@@ -285,7 +313,36 @@ const PlacesPage = () => {
                 {place.location}
               </p>
 
-              <p style={{ lineHeight: "1.6" }}>{place.description}</p>
+              <p style={{ lineHeight: "1.6", color: "#4a5568", marginBottom: "16px" }}>{place.description}</p>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f0f4f0", paddingTop: "14px", marginTop: "14px" }}>
+                <Link
+                  to={`/places/${place.id}`}
+                  style={{
+                    color: "#2e7d32",
+                    fontWeight: "bold",
+                    fontSize: "14px",
+                    textDecoration: "none",
+                  }}
+                >
+                  View Details & Stories →
+                </Link>
+                <Link
+                  to={`/places/${place.id}`}
+                  style={{
+                    backgroundColor: "#f0fdf4",
+                    color: "#166534",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: "4px",
+                    padding: "5px 10px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    textDecoration: "none",
+                  }}
+                >
+                  ✎ Suggest Correction
+                </Link>
+              </div>
             </article>
           ))}
         </section>

@@ -1,0 +1,29 @@
+[
+  {
+    "_id": "660c00000000000000000031",
+    "title": "Inscriptions of the Tirumala-Tirupati Devasthanams (Vol. I & II)",
+    "attribution": "Epigraphical Branch, Archaeological Survey of India & TTD Epigraphy Dept.",
+    "sourceType": "Epigraphical Corpus",
+    "url": "https://archive.org/details/in.ernet.dli.2015.76450",
+    "filePath": "sources/ttd_inscriptions_vol1.pdf",
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000032",
+    "title": "History of the Tirupati Temple: Epigraphical and Architectural Heritage",
+    "attribution": "Dr. S. Krishnaswami Aiyangar, University of Madras Oriental Research Series",
+    "sourceType": "Monograph",
+    "url": "https://archive.org/details/in.ernet.dli.2015.206212",
+    "filePath": "sources/history_tirupati_temple.pdf",
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000033",
+    "title": "Geological Survey of India Memoir on the Pre-Cambrian Formations of Tirumala Hills",
+    "attribution": "Geological Survey of India (GSI)",
+    "sourceType": "Geological Memoir",
+    "url": "https://www.gsi.gov.in",
+    "filePath": "sources/gsi_silathoranam_memoir.pdf",
+    "status": "approved"
+  }
+]

@@ -3,6 +3,7 @@ import { Place } from "../models/place.model.js";
 import { Source } from "../models/source.model.js";
 import { EditorialReview } from "../models/editorial-review.model.js";
 import { ApiError } from "../middlewares/error.middleware.js";
+import { syncStoryChunks } from "./curator.service.js";
 
 /**
  * Get an approved story by ID with related place (including opening hours and visit duration) and approved sources
@@ -110,6 +111,8 @@ export const reviewStoryApproval = async (id, { status, decision, notes } = {}, 
 
   story.status = reviewDecision;
   await story.save();
+
+  await syncStoryChunks(story, reviewDecision);
 
   const review = await EditorialReview.create({
     resourceId: story._id,

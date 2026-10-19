@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { generateChatAnswer } from "../services/generate-chat-answer.service.js";
 import { Conversation } from "../models/conversation.model.js";
 import { Chunk } from "../models/chunk.model.js";
@@ -6,6 +7,22 @@ import { requireAuth, requireVerifiedEmail } from "../middlewares/auth.middlewar
 import ollamaConfig from "../config/ollama.js";
 
 const router = Router();
+
+const chatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    data: null,
+    error: {
+      code: "TOO_MANY_REQUESTS",
+      message: "Too many chat messages from this IP. Please try again after 15 minutes.",
+    },
+  },
+});
 
 // Pluggable retriever hook for tests and Member 7 integration
 let customRetriever = null;
@@ -120,16 +137,40 @@ export async function handleChatMessage(req, res, next) {
       });
     }
 
-    // 2. Validate history structure
-    if (history !== undefined && !Array.isArray(history)) {
+    if (question.trim().length > 1000) {
       return res.status(400).json({
         success: false,
         data: null,
         error: {
-          code: "INVALID_HISTORY",
-          message: "History must be an array.",
+          code: "INVALID_QUESTION",
+          message: "Question must not exceed 1000 characters.",
         },
       });
+    }
+
+    // 2. Validate history structure and bounds
+    if (history !== undefined) {
+      if (!Array.isArray(history)) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          error: {
+            code: "INVALID_HISTORY",
+            message: "History must be an array.",
+          },
+        });
+      }
+
+      if (history.length > 20) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          error: {
+            code: "INVALID_HISTORY",
+            message: "History must not exceed 20 messages.",
+          },
+        });
+      }
     }
 
     // 3. Retrieve approved historical evidence
@@ -227,16 +268,63 @@ router.get("/status", async (req, res) => {
 });
 
 /**
+ * GET /api/chat/history
+ * Retrieve persisted conversation history for authenticated session
+ */
+router.get("/history", requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.session?.userId;
+    const history = await Conversation.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: history.map((c) => ({
+        id: c._id.toString(),
+        messages: c.messages,
+        createdAt: c.createdAt,
+      })),
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/chat
  * Generates a source-grounded answer to a historical question.
  */
-router.post("/", handleChatMessage);
+router.post("/", chatLimiter, handleChatMessage);
 
 /**
  * Specialized router for /api/heritage-chat (Strictly requiring verified member authentication)
  */
 export const heritageChatRouter = Router();
-heritageChatRouter.post("/", requireAuth, requireVerifiedEmail, handleChatMessage);
+heritageChatRouter.post("/", chatLimiter, requireAuth, requireVerifiedEmail, handleChatMessage);
+heritageChatRouter.get("/history", requireAuth, requireVerifiedEmail, async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const history = await Conversation.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: history.map((c) => ({
+        id: c._id.toString(),
+        messages: c.messages,
+        createdAt: c.createdAt,
+      })),
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 heritageChatRouter.get("/status", async (req, res) => {
   res.status(200).json({
     success: true,

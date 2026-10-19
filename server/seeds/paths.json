@@ -1,0 +1,56 @@
+[
+  {
+    "_id": "660c00000000000000000021",
+    "fromPlaceId": "660c00000000000000000001",
+    "toPlaceId": "660c00000000000000000002",
+    "walkingMinutes": 5,
+    "verificationStatus": "verified",
+    "bidirectional": true,
+    "notes": "Paved stone promenade along the northern pradakshinam pathway to the banks of Swami Pushkarini."
+  },
+  {
+    "_id": "660c00000000000000000022",
+    "fromPlaceId": "660c00000000000000000002",
+    "toPlaceId": "660c00000000000000000008",
+    "walkingMinutes": 4,
+    "verificationStatus": "verified",
+    "bidirectional": true,
+    "notes": "Waterside walkway bordering the northeastern corner of Swami Pushkarini leading to Varahaswami shrine."
+  },
+  {
+    "_id": "660c00000000000000000023",
+    "fromPlaceId": "660c00000000000000000001",
+    "toPlaceId": "660c00000000000000000003",
+    "walkingMinutes": 4,
+    "verificationStatus": "verified",
+    "bidirectional": true,
+    "notes": "Direct plaza crossing from the Mahadwaram entrance to the Bedi Anjaneyaswami sanctum."
+  },
+  {
+    "_id": "660c00000000000000000024",
+    "fromPlaceId": "660c00000000000000000003",
+    "toPlaceId": "660c00000000000000000007",
+    "walkingMinutes": 22,
+    "verificationStatus": "verified",
+    "bidirectional": true,
+    "notes": "Dedicated pedestrian trail traversing northward past the Chakra Theertham road towards the Silathoranam geological gardens."
+  },
+  {
+    "_id": "660c00000000000000000025",
+    "fromPlaceId": "660c00000000000000000001",
+    "toPlaceId": "660c00000000000000000007",
+    "walkingMinutes": 25,
+    "verificationStatus": "verified",
+    "bidirectional": true,
+    "notes": "Scenic upper ridge path connecting the main temple complex to the Silathoranam rock arch."
+  },
+  {
+    "_id": "660c00000000000000000026",
+    "fromPlaceId": "660c00000000000000000004",
+    "toPlaceId": "660c00000000000000000006",
+    "walkingMinutes": 30,
+    "verificationStatus": "verified",
+    "bidirectional": true,
+    "notes": "Historic pilgrim corridor connecting the base of the sacred hills at Kapila Theertham to the city center."
+  }
+]

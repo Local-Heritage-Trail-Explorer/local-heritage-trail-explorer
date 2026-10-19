@@ -7,11 +7,12 @@ import {
   updatePlaceFactual,
 } from "../services/place.service.js";
 import { validateQuery, validateParams, validate } from "../middlewares/validate.middleware.js";
-import { requireAuth } from "../middlewares/auth.middleware.js";
+import { requireAuth, requireVerifiedEmail } from "../middlewares/auth.middleware.js";
 import { requireRole } from "../middlewares/role.middleware.js";
 import { placeQuerySchema } from "../validators/place.schema.js";
 import { idParamSchema } from "../validators/common.schema.js";
 import { updatePlaceSchema } from "../validators/curator.schema.js";
+import { placeCorrectionSchema } from "../validators/correction.schema.js";
 
 const router = Router();
 
@@ -74,7 +75,13 @@ router.get("/:id/stories", validateParams(idParamSchema), async (req, res, next)
  * POST /api/places/:id/corrections
  * Submit a factual correction for curator review (authenticated visitor or member).
  */
-router.post("/:id/corrections", requireAuth, validateParams(idParamSchema), async (req, res, next) => {
+router.post(
+  "/:id/corrections",
+  requireAuth,
+  requireVerifiedEmail,
+  validateParams(idParamSchema),
+  validate(placeCorrectionSchema),
+  async (req, res, next) => {
   try {
     const correction = await submitPlaceCorrection(
       req.params.id,

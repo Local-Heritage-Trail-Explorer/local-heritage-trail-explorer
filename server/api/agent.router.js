@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireVerifiedEmail } from "../middlewares/auth.middleware.js";
+import { validate } from "../middlewares/validate.middleware.js";
+import { trailAgentGenerateSchema } from "../validators/ai.schema.js";
 import { generateTrailPlan } from "../services/trail-agent.service.js";
 import { createTrail } from "../services/trail.service.js";
 
@@ -30,6 +32,7 @@ router.post(
   "/generate",
   requireAuth,
   requireVerifiedEmail,
+  validate(trailAgentGenerateSchema),
   async (req, res, next) => {
     try {
       const {
@@ -88,6 +91,7 @@ router.post(
   "/",
   requireAuth,
   requireVerifiedEmail,
+  validate(trailAgentGenerateSchema),
   async (req, res, next) => {
     try {
       const {

@@ -165,43 +165,17 @@ authRouter.get("/me", requireAuth, (req, res, next) => {
 });
 
 // 8. POST /api/auth/staff-invitation
-// Curator only (or bootstrap with x-bootstrap-key)
-authRouter.post("/staff-invitation", async (req, res, next) => {
+// Curator only
+authRouter.post("/staff-invitation", requireAuth, requireRole("CURATOR"), async (req, res, next) => {
   try {
-    const bootstrapKey = req.headers["x-bootstrap-key"];
-    const validKey =
-      process.env.BOOTSTRAP_KEY || process.env.SESSION_SECRET || "heritage-secure-bootstrap-key";
-
-    if (bootstrapKey === validKey) {
-      // Authorized via bootstrap key
-      const result = await authService.createStaffInvitation({
-        ...req.body,
-        invitedById: null,
-      });
-      return res.status(201).json({
-        success: true,
-        data: result,
-        error: null,
-      });
-    }
-
-    // Require logged-in Curator
-    return requireAuth(req, res, () => {
-      requireRole("CURATOR")(req, res, async () => {
-        try {
-          const result = await authService.createStaffInvitation({
-            ...req.body,
-            invitedById: req.user._id,
-          });
-          return res.status(201).json({
-            success: true,
-            data: result,
-            error: null,
-          });
-        } catch (err) {
-          next(err);
-        }
-      });
+    const result = await authService.createStaffInvitation({
+      ...req.body,
+      invitedById: req.user._id,
+    });
+    return res.status(201).json({
+      success: true,
+      data: result,
+      error: null,
     });
   } catch (error) {
     next(error);
@@ -225,7 +199,7 @@ authRouter.post("/accept-invitation", async (req, res, next) => {
 
 // 10. POST /api/auth/bootstrap-staff
 // Restricted system initialization of first Curator
-authRouter.post("/bootstrap-staff", async (req, res, next) => {
+authRouter.post("/bootstrap-staff", signupLimiter, async (req, res, next) => {
   try {
     const bootstrapKey = req.headers["x-bootstrap-key"] || req.body.bootstrapKey;
     const result = await authService.bootstrapFirstStaff({

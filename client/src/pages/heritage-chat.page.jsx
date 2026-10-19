@@ -46,6 +46,35 @@ export const HeritageChatPage = () => {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    aiService
+      .getChatHistory()
+      .then((res) => {
+        if (!isMounted) return;
+        const data = res?.data || res;
+        if (Array.isArray(data) && data.length > 0) {
+          const restoredMessages = [];
+          const chronological = [...data].reverse();
+          for (const conv of chronological) {
+            if (Array.isArray(conv.messages)) {
+              restoredMessages.push(...conv.messages);
+            }
+          }
+          if (restoredMessages.length > 0) {
+            setMessages((prev) => [prev[0], ...restoredMessages]);
+          }
+        }
+      })
+      .catch(() => {
+        // Unauthenticated or no saved history
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 

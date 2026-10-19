@@ -63,6 +63,14 @@ export const TrailPlannerPage = () => {
   };
 
   const handleGenerateWithAgent = async () => {
+    if (!user) {
+      setFeedbackMessage({
+        type: "error",
+        text: "🔒 Please sign in to synthesize customized heritage itineraries with the AI Trail Agent.",
+      });
+      return;
+    }
+
     setIsGenerating(true);
     setFeedbackMessage({ type: "", text: "" });
 
@@ -78,34 +86,12 @@ export const TrailPlannerPage = () => {
       setGeneratedPlan(plan);
       setFeedbackMessage({
         type: "success",
-        text: "✨ Trail Agent synthesized your personalized heritage itinerary!",
+        text: "✨ AI Trail Agent successfully synthesized your personalized heritage itinerary!",
       });
     } catch (err) {
-      // In offline / fallback mode: construct deterministic plan from selected or available places
-      const stopsToUse = selectedPlaceIds.length > 0
-        ? availablePlaces.filter((p) => selectedPlaceIds.includes(p._id || p.id))
-        : availablePlaces.slice(0, 3);
-
-      const calculatedMins = stopsToUse.reduce((s, p) => s + (p.estimatedVisitMinutes || 45), 0);
-
-      setGeneratedPlan({
-        title: `${theme} Itinerary`,
-        theme,
-        estimatedMinutes: calculatedMins || maxMinutes,
-        stops: stopsToUse.map((p) => p._id || p.id),
-        stopDetails: stopsToUse.map((p) => ({
-          id: p._id || p.id,
-          name: p.name,
-          category: p.category,
-          zone: p.zone,
-          estimatedVisitMinutes: p.estimatedVisitMinutes || 45,
-        })),
-        narrative: `Experience a curated ${theme} journey across ${stopsToUse.length} heritage sites.`,
-      });
-
       setFeedbackMessage({
-        type: "info",
-        text: "Tailored heritage trail itinerary prepared from selected landmarks.",
+        type: "error",
+        text: err?.message || "Failed to generate AI trail itinerary. Please verify connection and try again.",
       });
     } finally {
       setIsGenerating(false);
@@ -255,6 +241,44 @@ export const TrailPlannerPage = () => {
           </div>
         </div>
 
+        {!user && (
+          <div
+            style={{
+              marginTop: "16px",
+              padding: "12px 16px",
+              backgroundColor: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              borderRadius: "6px",
+              color: "#1e40af",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            <span>
+              🔒 <strong>Sign-in Required:</strong> Log in with your visitor account to have the AI Trail Agent synthesize and save custom itineraries.
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              style={{
+                backgroundColor: "#2563eb",
+                color: "#ffffff",
+                border: "none",
+                padding: "6px 14px",
+                borderRadius: "4px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              Sign In →
+            </button>
+          </div>
+        )}
+
         <div style={{ marginTop: "20px", display: "flex", gap: "12px", alignItems: "center" }}>
           <button
             type="button"
@@ -271,7 +295,7 @@ export const TrailPlannerPage = () => {
               fontSize: "15px",
             }}
           >
-            {isGenerating ? "🤖 Synthesizing Trail Itinerary..." : "✨ Generate AI Trail Itinerary"}
+            {isGenerating ? "🤖 AI Agent Synthesizing Route..." : "✨ Synthesize Trail with AI Agent"}
           </button>
 
           {selectedPlaceIds.length > 0 && (
@@ -296,11 +320,17 @@ export const TrailPlannerPage = () => {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "12px" }}>
             <div>
               <span style={{ backgroundColor: "#dcfce7", color: "#166534", padding: "4px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: "bold" }}>
-                AI Generated Route
+                ✨ AI Agent Synthesized Route
               </span>
               <h2 style={{ margin: "8px 0 4px 0", color: "#14532d" }}>{generatedPlan.title}</h2>
               <p style={{ margin: "0", color: "#166534", fontSize: "14px" }}>
-                ⏱ Estimated Total Duration: ~{generatedPlan.estimatedMinutes} minutes | 📍 {generatedPlan.stops?.length || 0} stops
+                ⏱ Estimated Total Duration: ~{generatedPlan.estimatedMinutes} minutes
+                {generatedPlan.feasibility && (
+                  <span>
+                    {" "}(🚶 {generatedPlan.feasibility.totalWalkingMinutes}m walking + 🏛 {generatedPlan.feasibility.totalVisitMinutes}m visiting)
+                  </span>
+                )}
+                {" "}| 📍 {generatedPlan.stops?.length || 0} stops
               </p>
             </div>
 
@@ -323,8 +353,41 @@ export const TrailPlannerPage = () => {
             </button>
           </div>
 
+          {generatedPlan.reasoning && (
+            <div
+              style={{
+                marginTop: "14px",
+                padding: "10px 14px",
+                backgroundColor: "#ffffff",
+                borderLeft: "4px solid #16a34a",
+                borderRadius: "4px",
+                fontSize: "13px",
+                color: "#15803d",
+              }}
+            >
+              <strong>💡 AI Agent Rationale:</strong> {generatedPlan.reasoning}
+            </div>
+          )}
+
+          {generatedPlan.substitutions && generatedPlan.substitutions.length > 0 && (
+            <div
+              style={{
+                marginTop: "10px",
+                padding: "10px 14px",
+                backgroundColor: "#fffbeb",
+                border: "1px solid #fef3c7",
+                borderRadius: "4px",
+                fontSize: "13px",
+                color: "#b45309",
+              }}
+            >
+              <strong>⚠️ Visiting Hours Adjustment:</strong>{" "}
+              {generatedPlan.substitutions.map((s) => s.explanation).join(" ")}
+            </div>
+          )}
+
           {generatedPlan.narrative && (
-            <p style={{ marginTop: "16px", color: "#1f2937", lineHeight: "1.6", fontStyle: "italic", backgroundColor: "#ffffff", padding: "14px", borderRadius: "6px", border: "1px solid #dcfce7" }}>
+            <p style={{ marginTop: "14px", color: "#1f2937", lineHeight: "1.6", fontStyle: "italic", backgroundColor: "#ffffff", padding: "14px", borderRadius: "6px", border: "1px solid #dcfce7" }}>
               "{generatedPlan.narrative}"
             </p>
           )}

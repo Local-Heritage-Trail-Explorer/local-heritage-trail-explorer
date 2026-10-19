@@ -21,6 +21,10 @@ export const trailService = {
     return await api.patch(`/trails/${trailId}/progress`, { placeId });
   },
 
+  getProgress: async (trailId) => {
+    return await api.get(`/trails/${trailId}/progress`);
+  },
+
   getTrailFeedback: async (trailId, params = {}) => {
     return await api.get(`/trails/${trailId}/feedback`, { params });
   },

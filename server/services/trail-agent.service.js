@@ -69,7 +69,7 @@ export const DEFAULT_HERITAGE_PLACES = [
     themes: ["architecture", "history", "monument"],
     estimatedVisitMinutes: 40,
     historicalSignificance: "11th-century fort and fourth capital of the Vijayanagara Empire.",
-    openingHours: { open: "08:00", close: "17:30" },
+    openingHours: { open: "08:00", close: "17:30", closedDays: ["friday"] },
     hoursVerification: "verified",
     status: "approved",
   },
@@ -106,9 +106,22 @@ export const DEFAULT_HERITAGE_PLACES = [
  */
 export async function getCandidatePlaces(filter = {}) {
   try {
-    const places = await Place.find({ status: "approved", ...filter }).lean();
-    if (places && places.length > 0) {
-      return places;
+    if (mongoose.connection.readyState === 1) {
+      let places = await Place.find({ status: "approved", ...filter }).lean();
+      if (places && places.length > 0) {
+        return places;
+      }
+      places = await Place.find({ status: "approved" }).lean();
+      if (places && places.length > 0) {
+        return places;
+      }
+      for (const p of DEFAULT_HERITAGE_PLACES) {
+        await Place.findByIdAndUpdate(p._id, { $setOnInsert: p }, { upsert: true, new: true });
+      }
+      const seeded = await Place.find({ status: "approved" }).lean();
+      if (seeded && seeded.length > 0) {
+        return seeded;
+      }
     }
   } catch {
     // Database fallback
@@ -222,26 +235,58 @@ export async function generateTrailPlan({
 
     for (const closedStop of closedStops) {
       // Find suitable open alternative matching zone or theme
-      const alternative = allApproved.find((p) => {
+      let alternative = allApproved.find((p) => {
         const idStr = p._id?.toString() || p.id?.toString();
+        if (idStr === closedStop.id) return false;
         if (existingOpenIds.has(idStr)) return false;
-        if (p.openingHours?.isClosed === true || p.hoursVerification === "closed") return false;
-        // Same zone preferred
-        return p.zone === closedStop.zone || (p.themes || []).includes(theme.toLowerCase());
+
+        // Verify alternative is not closed on this target date
+        const hours = p.openingHours || {};
+        if (hours.isClosed === true || p.hoursVerification === "closed") return false;
+        if (Array.isArray(hours.closedDays) && hours.closedDays.includes(hoursResult.dayOfWeek)) return false;
+        if (hours[hoursResult.dayOfWeek] && hours[hoursResult.dayOfWeek].isClosed === true) return false;
+        if (Array.isArray(hours.closureDates) && hours.closureDates.includes(hoursResult.date)) return false;
+
+        // Same zone preferred or matching theme
+        return p.zone === closedStop.zone || (p.themes || []).map((t) => t.toLowerCase()).includes(theme.toLowerCase());
       });
+
+      // If no unselected candidate outside existingOpenIds, select another open approved landmark
+      if (!alternative) {
+        alternative = allApproved.find((p) => {
+          const idStr = p._id?.toString() || p.id?.toString();
+          if (idStr === closedStop.id) return false;
+          if (existingOpenIds.has(idStr)) return false;
+
+          const hours = p.openingHours || {};
+          if (hours.isClosed === true || p.hoursVerification === "closed") return false;
+          if (Array.isArray(hours.closedDays) && hours.closedDays.includes(hoursResult.dayOfWeek)) return false;
+          if (hours[hoursResult.dayOfWeek] && hours[hoursResult.dayOfWeek].isClosed === true) return false;
+          if (Array.isArray(hours.closureDates) && hours.closureDates.includes(hoursResult.date)) return false;
+
+          return true;
+        });
+      }
+
+      // If all approved places are already in openCandidates, designate the primary open stop as the substitute
+      if (!alternative && openCandidates.length > 0) {
+        alternative = openCandidates[0];
+      }
 
       if (alternative) {
         const altId = alternative._id?.toString() || alternative.id?.toString();
         existingOpenIds.add(altId);
-        openCandidates.push({
-          _id: altId,
-          id: altId,
-          name: alternative.name,
-          zone: alternative.zone,
-          estimatedVisitMinutes: alternative.estimatedVisitMinutes || 25,
-          themes: alternative.themes,
-          openingHours: alternative.openingHours,
-        });
+        if (!openCandidates.some((p) => p.id === altId)) {
+          openCandidates.push({
+            _id: altId,
+            id: altId,
+            name: alternative.name,
+            zone: alternative.zone,
+            estimatedVisitMinutes: alternative.estimatedVisitMinutes || 25,
+            themes: alternative.themes,
+            openingHours: alternative.openingHours,
+          });
+        }
 
         substitutions.push({
           closedStop: {
@@ -280,10 +325,65 @@ export async function generateTrailPlan({
   }
 
   // -------------------------------------------------------------
+  // Step 3.5: AI Agent Stop Selection & Sequencing
+  // -------------------------------------------------------------
+  let candidateIdsForRoute = openCandidates.map((p) => p.id);
+  let aiReasoning = null;
+  let aiNarrative = null;
+
+  if (process.env.NODE_ENV !== "test" && openCandidates.length >= 2) {
+    try {
+      const candidateList = openCandidates.slice(0, 8).map((p, idx) =>
+        `${idx + 1}. ID: "${p.id}", Name: "${p.name}", Zone: "${p.zone || "Heritage"}", EstVisit: ${p.estimatedVisitMinutes || 30} mins, Themes: ${(p.themes || []).join(", ")}, Highlights: ${(p.description || p.historicalSignificance || "").slice(0, 80)}`
+      ).join("\n");
+
+      const agentPrompt = `You are an expert AI Heritage Trail Agent for Tirumala and Tirupati.
+Select 2 to 4 stops from the candidates below to construct an optimized walking itinerary for a visitor:
+- Theme: ${theme}
+- Visitor Interests & Notes: ${userPrompt || "Cultural significance and historical discovery"}
+- Max Time Budget: ${budget} minutes
+${preferredPlaceIds.length > 0 ? "- Note: Visitor prioritized specific landmarks (prioritize these if open)" : ""}
+${substitutions.length > 0 ? `- Substitutions Made: ${substitutions.map((s) => s.explanation).join(" ")}` : ""}
+
+Candidate Sites:
+${candidateList}
+
+Instructions:
+1. Select 2 to 4 site IDs that best fit the visitor's request and time budget (including ~10 mins walking between consecutive sites).
+2. Sequence them in a practical walking order.
+3. Respond ONLY with a valid JSON object matching this schema (no markdown formatting, no other text):
+{
+  "selectedIds": ["id1", "id2"],
+  "reasoning": "1-2 sentences on why these specific landmarks match the visitor's request",
+  "narrative": "An engaging 2-3 sentence story and overview of the trail"
+}`;
+
+      const aiPlanRaw = await generateWithOllama(agentPrompt, { timeoutMs: 15000 });
+      if (aiPlanRaw) {
+        const jsonMatch = aiPlanRaw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed.selectedIds) && parsed.selectedIds.length >= 2) {
+            const validSet = new Set(openCandidates.map((p) => p.id));
+            const filteredIds = parsed.selectedIds.filter((id) => validSet.has(id));
+            if (filteredIds.length >= 2) {
+              const remainingIds = openCandidates.map((p) => p.id).filter((id) => !filteredIds.includes(id));
+              candidateIdsForRoute = [...filteredIds, ...remainingIds];
+              if (parsed.reasoning) aiReasoning = parsed.reasoning;
+              if (parsed.narrative) aiNarrative = parsed.narrative;
+            }
+          }
+        }
+      }
+    } catch {
+      // Gracefully retain ranked candidates
+    }
+  }
+
+  // -------------------------------------------------------------
   // Step 4: Tool calculateTrail (Feasible timing & stored walking paths)
   // -------------------------------------------------------------
-  const candidateIdsForRoute = openCandidates.map((p) => p.id);
-  const startPlaceId = preferredPlaceIds[0] || (openCandidates[0] ? openCandidates[0].id : null);
+  const startPlaceId = preferredPlaceIds[0] || (candidateIdsForRoute[0] || (openCandidates[0] ? openCandidates[0].id : null));
 
   let trailCalculation = null;
   try {
@@ -300,7 +400,7 @@ export async function generateTrailPlan({
     const selected = [];
     for (const p of openCandidates) {
       const visit = p.estimatedVisitMinutes || 25;
-      if (accTime + visit <= budget || selected.length < 2) {
+      if (accTime + visit <= budget) {
         selected.push({
           id: p.id,
           name: p.name,
@@ -328,11 +428,13 @@ export async function generateTrailPlan({
   // -------------------------------------------------------------
   // Step 5: Synthesize AI Narrative Overview
   // -------------------------------------------------------------
-  let narrative = `Curated ${theme} walking trail spanning ${finalStops.length} heritage landmarks, starting at ${finalStops[0]?.name || "Heritage Precinct"} and concluding at ${finalStops[finalStops.length - 1]?.name || "Heritage Site"}. Total planned duration: ~${totalMinutes} minutes.`;
+  let narrative = aiNarrative;
+  if (!narrative) {
+    narrative = `Curated ${theme} walking trail spanning ${finalStops.length} heritage landmarks, starting at ${finalStops[0]?.name || "Heritage Precinct"} and concluding at ${finalStops[finalStops.length - 1]?.name || "Heritage Site"}. Total planned duration: ~${totalMinutes} minutes.`;
 
-  if (process.env.NODE_ENV !== "test") {
-    try {
-      const prompt = `You are an expert heritage trail curator for Tirumala and Tirupati.
+    if (process.env.NODE_ENV !== "test") {
+      try {
+        const prompt = `You are an expert heritage trail curator for Tirumala and Tirupati.
 Create an engaging 2-3 sentence overview for a heritage walking trail with:
 Theme: ${theme}
 Stops: ${finalStops.map((s, i) => `${i + 1}. ${s.name} (${s.zone || "Heritage Zone"})`).join("; ")}
@@ -342,12 +444,13 @@ ${substitutions.length > 0 ? `Substitutions Made: ${substitutions.map((s) => s.e
 
 Provide only the engaging overview.`;
 
-      const aiResponse = await generateWithOllama(prompt, { timeoutMs: 5000 });
-      if (aiResponse && aiResponse.trim().length > 20) {
-        narrative = aiResponse.trim();
+        const aiResponse = await generateWithOllama(prompt, { timeoutMs: 10000 });
+        if (aiResponse && aiResponse.trim().length > 20) {
+          narrative = aiResponse.trim();
+        }
+      } catch {
+        // Retain deterministic narrative
       }
-    } catch {
-      // Retain deterministic narrative
     }
   }
 
@@ -365,6 +468,7 @@ Provide only the engaging overview.`;
       estimatedVisitMinutes: s.estimatedVisitMinutes,
       walkingToNext: s.walkingToNext || 0,
     })),
+    reasoning: aiReasoning || `Optimized route curated to reflect ${theme} themes, verified opening hours, and feasible walking distances within your ${budget}-minute budget.`,
     toolStatus,
     feasibility: {
       isFeasible: trailCalculation.feasible,

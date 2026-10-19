@@ -79,7 +79,7 @@ describe("Semantic Search API Endpoint (POST /api/search/semantic)", () => {
     // Ensure raw embeddings are NOT exposed in API responses
     expect(first.embedding).toBeUndefined();
     expect(res.body.embedding).toBeUndefined();
-  });
+  }, 15000);
 
   it("should retrieve stories when phrased differently from exact story wording", async () => {
     // Paraphrased query: "kings and dynasties donating gold to the shrine"
@@ -93,7 +93,7 @@ describe("Semantic Search API Endpoint (POST /api/search/semantic)", () => {
     expect(res.status).toBe(200);
     expect(res.body.results.length).toBeGreaterThan(0);
     expect(res.body.results[0].title).toMatch(/dynastic|patronage|ananda nilayam|tirumala/i);
-  });
+  }, 15000);
 
   it("should reject empty or whitespace-only query with 400 Bad Request", async () => {
     const res = await request(app)

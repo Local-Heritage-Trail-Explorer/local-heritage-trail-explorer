@@ -41,7 +41,6 @@ const staffInvitationSchema = new Schema(
   }
 );
 
-staffInvitationSchema.index({ tokenHash: 1 });
 staffInvitationSchema.index({ email: 1 });
 
 export const StaffInvitation = model("StaffInvitation", staffInvitationSchema);

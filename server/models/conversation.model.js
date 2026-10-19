@@ -18,8 +18,8 @@ const conversationSchema = new Schema(
   }
 );
 
-// Private; index userId
-conversationSchema.index({ userId: 1 });
+// Private; index userId and createdAt for chat history retrieval
+conversationSchema.index({ userId: 1, createdAt: -1 });
 
 export const Conversation = model("Conversation", conversationSchema);
 export default Conversation;

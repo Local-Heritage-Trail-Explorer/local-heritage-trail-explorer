@@ -163,6 +163,23 @@ export async function generateChatAnswer({
     throw error;
   }
 
+  const trimmedQuestion = question.trim();
+
+  // Handle conversational pleasantries, greetings, and assistant introductions naturally
+  const GREETINGS_REGEX = /^(hello|hi|hey|namaste|vanakkam|good\s+(morning|afternoon|evening)|greetings|who\s+are\s+you|what\s+can\s+you\s+do|help|howdy)[!?. ]*$/i;
+  if (GREETINGS_REGEX.test(trimmedQuestion)) {
+    return {
+      answer: "Namaste! I am your AI Heritage Guide for the Tirumala and Tirupati region. I can answer questions grounded in verified epigraphical and archaeological records about local temples, Vijayanagara architecture, ancient inscriptions, and sacred sites. What would you like to explore today?",
+      citations: [],
+      insufficientEvidence: false,
+      suggestedFollowUps: [
+        "Tell me about the Ananda Nilayam vimana gilding chronicles.",
+        "What is the historical significance of Chandragiri Fort?",
+        "Explain the sacred traditions of Swami Pushkarini.",
+      ],
+    };
+  }
+
   const sources = cleanPassages(passages);
 
   // If no passages retrieved from approved sources, immediately return insufficient evidence

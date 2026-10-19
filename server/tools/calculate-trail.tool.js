@@ -92,8 +92,20 @@ export async function calculateTrail({
     );
     if (reverse) return reverse.walkingMinutes;
 
-    // Standard local fallback walking time between adjacent campus / precinct stops
-    return 10;
+    const fromPlace = placeMap.get(fStr);
+    const toPlace = placeMap.get(tStr);
+
+    // If both stops belong to the same local precinct / zone, use standard local 10 min walk
+    if (
+      fromPlace?.zone &&
+      toPlace?.zone &&
+      fromPlace.zone.toLowerCase().trim() === toPlace.zone.toLowerCase().trim()
+    ) {
+      return 10;
+    }
+
+    // Cross-zone traversal without a registered pedestrian path is realistically infeasible on foot (180+ mins)
+    return 180;
   };
 
   // Deterministically accumulate stops within the time budget
@@ -113,9 +125,29 @@ export async function calculateTrail({
         ? getWalkingMinutes(selectedStops[selectedStops.length - 1].id, stopId)
         : 0;
 
+    // Check cross-zone walking feasibility
+    if (selectedStops.length > 0 && walkDuration >= 120) {
+      rejectedStops.push({
+        id: place._id?.toString() || place.id?.toString(),
+        name: place.name,
+        reason: `Walking between ${selectedStops[selectedStops.length - 1].zone} and ${place.zone} is not feasible on foot without designated transit (~${walkDuration} mins).`,
+      });
+      continue;
+    }
+
+    // Check if individual stop visit alone exceeds budget
+    if (selectedStops.length === 0 && visitDuration > budget) {
+      rejectedStops.push({
+        id: place._id?.toString() || place.id?.toString(),
+        name: place.name,
+        reason: `Estimated visit duration (${visitDuration} mins) exceeds total time budget of ${budget} minutes.`,
+      });
+      continue;
+    }
+
     const newTotal = totalWalking + totalVisit + walkDuration + visitDuration;
 
-    if (newTotal <= budget || selectedStops.length < 2) {
+    if (newTotal <= budget) {
       if (selectedStops.length > 0) {
         selectedStops[selectedStops.length - 1].walkingToNext = walkDuration;
         totalWalking += walkDuration;

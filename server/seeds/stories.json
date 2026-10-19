@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "660c00000000000000000041",
+    "placeId": "660c00000000000000000001",
+    "title": "The Ananda Nilayam Vimana and Golden Gilding Chronicles",
+    "content": "The central sanctum sanctorum of Sri Venkateswara Temple is crowned by the Ananda Nilayam vimana. Historical epigraphs across the temple walls record that the vimana was first gilded with gold in 839 CE by the Pallava queen Samavai. Subsequent major golden gildings and extensive endowments were performed by the Vijayanagara emperor Sri Krishnadevaraya in 1517 CE following his eastern military campaigns, donating thirty thousand gold coins (varahas) and priceless gemstones.",
+    "sourceIds": ["660c00000000000000000031", "660c00000000000000000032"],
+    "claimType": "historical_chronicle",
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000042",
+    "placeId": "660c00000000000000000002",
+    "title": "Varahaswami's Divine Prerogative at Swami Pushkarini",
+    "content": "According to ancient regional epigraphy and temple manuals documented in the Brahmanda Purana, Lord Varaha was the original custodian of the Venkatadri hills. When Lord Srinivasa arrived on the hill, Varaha gifted him land on the condition that devotees offer worship and naivedyam to Varahaswami first before entering the main Venkateswara sanctum. Swami Pushkarini serves as the sacred cleansing threshold honoring this ancient covenant.",
+    "sourceIds": ["660c00000000000000000031", "660c00000000000000000032"],
+    "claimType": "tradition_and_epigraphy",
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000043",
+    "placeId": "660c00000000000000000007",
+    "title": "The Pre-Cambrian Natural Rock Arch of Silathoranam",
+    "content": "Silathoranam is a distinctive natural arch formed in quartzites belonging to the Nagari Quartzite Formation of the Cuddapah Supergroup. Geological studies by the Geological Survey of India reveal that the arch spans approximately 8 meters in width and 3 meters in height, formed over 1.5 billion years by the differential chemical and mechanical weathering along joint sets in the strata.",
+    "sourceIds": ["660c00000000000000000033"],
+    "claimType": "geological_monument",
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000044",
+    "placeId": "660c00000000000000000006",
+    "title": "Consecration of Sri Govindaraja Swamy Temple by Ramanujacharya",
+    "content": "In 1130 CE, the revered philosopher-reformer Saint Sri Ramanujacharya installed the processional icon of Sri Govindaraja Swamy in Tirupati to protect it from sectarian conflicts in Chidambaram. Ramanujacharya systematically organized the township of Tirupati around the temple quadrangles, structuring the four Mada streets and ordaining the hereditary ritual responsibilities that persist to the present day.",
+    "sourceIds": ["660c00000000000000000031", "660c00000000000000000032"],
+    "claimType": "historical_chronicle",
+    "status": "approved"
+  }
+]

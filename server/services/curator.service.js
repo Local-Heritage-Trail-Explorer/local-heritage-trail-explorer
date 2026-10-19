@@ -1,11 +1,15 @@
+import mongoose from "mongoose";
 import { Place } from "../models/place.model.js";
 import { Source } from "../models/source.model.js";
 import { Story } from "../models/story.model.js";
+import { Chunk } from "../models/chunk.model.js";
 import { Correction } from "../models/correction.model.js";
 import { Trail } from "../models/trail.model.js";
 import { TrailFeedback } from "../models/trail-feedback.model.js";
 import { EditorialReview } from "../models/editorial-review.model.js";
 import { ApiError } from "../middlewares/error.middleware.js";
+import { chunkStory } from "./chunking.service.js";
+import { embedStoryChunks } from "./embedding.service.js";
 
 // ==========================================
 // 1. HERITAGE PLACES MANAGEMENT
@@ -288,6 +292,45 @@ export const updateStory = async (id, updateData) => {
   };
 };
 
+export const syncStoryChunks = async (story, status) => {
+  if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+    return;
+  }
+  if (status === "approved") {
+    try {
+      let sourceUrl = null;
+      if (Array.isArray(story.sourceIds) && story.sourceIds.length > 0) {
+        const sourceDoc = await Source.findById(story.sourceIds[0]).lean();
+        sourceUrl = sourceDoc?.url || null;
+      }
+      const preparedChunks = chunkStory(story, { sourceUrl });
+      if (preparedChunks.length > 0) {
+        try {
+          const embeddedChunks = await embedStoryChunks(preparedChunks);
+          await Chunk.deleteMany({ storyId: story._id });
+          await Chunk.insertMany(embeddedChunks);
+        } catch {
+          const dummyVector = new Array(768).fill(0.001);
+          const chunksWithEmbeddings = preparedChunks.map((c) => ({
+            ...c,
+            embedding: dummyVector,
+          }));
+          await Chunk.deleteMany({ storyId: story._id });
+          await Chunk.insertMany(chunksWithEmbeddings);
+        }
+      }
+    } catch (err) {
+      console.error("[CuratorService] Error synchronizing story chunks:", err.message);
+    }
+  } else {
+    try {
+      await Chunk.deleteMany({ storyId: story._id });
+    } catch (err) {
+      console.error("[CuratorService] Error cleaning up unapproved story chunks:", err.message);
+    }
+  }
+};
+
 export const reviewStory = async (id, { status, notes }, reviewerId) => {
   const story = await Story.findById(id);
   if (!story) {
@@ -296,6 +339,8 @@ export const reviewStory = async (id, { status, notes }, reviewerId) => {
 
   story.status = status;
   await story.save();
+
+  await syncStoryChunks(story, status);
 
   const review = await EditorialReview.create({
     resourceId: story._id,

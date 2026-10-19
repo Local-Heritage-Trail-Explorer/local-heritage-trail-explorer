@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { User } from "../models/user.model.js";
-import { requireAuth } from "../middlewares/auth.middleware.js";
+import { requireAuth, requireVerifiedEmail } from "../middlewares/auth.middleware.js";
 import { validate, validateQuery, validateParams } from "../middlewares/validate.middleware.js";
 import { idParamSchema } from "../validators/common.schema.js";
 import {
@@ -62,7 +62,7 @@ router.get("/", optionalAuth, validateQuery(trailQuerySchema), async (req, res, 
  * POST /api/trails
  * Create and save a new private trail for the authenticated user
  */
-router.post("/", requireAuth, validate(createTrailSchema), async (req, res, next) => {
+router.post("/", requireAuth, requireVerifiedEmail, validate(createTrailSchema), async (req, res, next) => {
   try {
     const { title, theme, stops, estimatedMinutes } = req.body;
     const trail = await trailService.createTrail({
@@ -131,12 +131,39 @@ router.get("/:id", optionalAuth, validateParams(idParamSchema), async (req, res,
 });
 
 /**
+ * GET /api/trails/:id/progress
+ * Retrieve the authenticated user's visit progress for a trail
+ */
+router.get(
+  "/:id/progress",
+  requireAuth,
+  validateParams(idParamSchema),
+  async (req, res, next) => {
+    try {
+      const progress = await trailService.getTrailProgress({
+        trailId: req.params.id,
+        userId: req.user._id,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: progress,
+        error: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
  * PATCH /api/trails/:id/progress
  * Track progress and visits on a trail
  */
 router.patch(
   "/:id/progress",
   requireAuth,
+  requireVerifiedEmail,
   validateParams(idParamSchema),
   validate(updateProgressSchema),
   async (req, res, next) => {
@@ -166,6 +193,7 @@ router.patch(
 router.post(
   "/:id/feedback",
   requireAuth,
+  requireVerifiedEmail,
   validateParams(idParamSchema),
   validate(submitFeedbackSchema),
   async (req, res, next) => {
@@ -226,6 +254,7 @@ router.get(
 router.patch(
   "/:id/feedback/:feedbackId",
   requireAuth,
+  requireVerifiedEmail,
   validateParams(trailAndFeedbackParamsSchema),
   validate(updateFeedbackSchema),
   async (req, res, next) => {
@@ -271,8 +300,8 @@ const handleRequestTrailPublication = async (req, res, next) => {
   }
 };
 
-router.post("/:id/publish-request", requireAuth, validateParams(idParamSchema), handleRequestTrailPublication);
-router.post("/:id/publication-request", requireAuth, validateParams(idParamSchema), handleRequestTrailPublication);
+router.post("/:id/publish-request", requireAuth, requireVerifiedEmail, validateParams(idParamSchema), handleRequestTrailPublication);
+router.post("/:id/publication-request", requireAuth, requireVerifiedEmail, validateParams(idParamSchema), handleRequestTrailPublication);
 
 /**
  * POST /api/trails/:id/share-request
@@ -281,6 +310,7 @@ router.post("/:id/publication-request", requireAuth, validateParams(idParamSchem
 router.post(
   "/:id/share-request",
   requireAuth,
+  requireVerifiedEmail,
   validateParams(idParamSchema),
   async (req, res, next) => {
     try {

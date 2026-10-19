@@ -14,6 +14,8 @@ import {
   curatorListQuerySchema,
 } from "../validators/curator.schema.js";
 import curatorService from "../services/curator.service.js";
+import { uploadSingle } from "../middlewares/multer.middleware.js";
+import { extractTextFromBuffer } from "../services/text-extraction.service.js";
 
 const router = Router();
 
@@ -67,6 +69,57 @@ router.patch("/places/:id", validateParams(idParamSchema), validate(updatePlaceS
 // ==========================================
 // 2. SOURCES
 // ==========================================
+
+router.post("/sources/upload", uploadSingle("file"), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        data: null,
+        error: {
+          code: "MISSING_FILE",
+          message: "Please upload a document file.",
+        },
+      });
+    }
+
+    const { text, charCount, wordCount, format } = await extractTextFromBuffer(
+      req.file.buffer,
+      req.file.mimetype,
+      req.file.originalname
+    );
+
+    const title = req.body.title || req.file.originalname;
+    const attribution = req.body.attribution || "Curator Document Upload";
+    const sourceType = req.body.sourceType || (format === "pdf" ? "Archival PDF" : "Historical Document");
+    const filePath = `uploads/${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+
+    const source = await curatorService.createSource(
+      {
+        title,
+        attribution,
+        sourceType,
+        filePath,
+        status: req.body.status || "pending",
+      },
+      req.user._id
+    );
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        source,
+        extractedText: text.slice(0, 1000),
+        charCount,
+        wordCount,
+        format,
+      },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.post("/sources", validate(createSourceSchema), async (req, res, next) => {
   try {
@@ -165,7 +218,7 @@ router.patch("/stories/:id", validateParams(idParamSchema), validate(updateStory
   }
 });
 
-router.patch("/stories/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), async (req, res, next) => {
+const handleReviewStory = async (req, res, next) => {
   try {
     const result = await curatorService.reviewStory(req.params.id, req.body, req.user._id);
     return res.status(200).json({
@@ -176,7 +229,12 @@ router.patch("/stories/:id/review", validateParams(idParamSchema), validate(revi
   } catch (error) {
     next(error);
   }
-});
+};
+
+router.patch("/stories/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewStory);
+router.post("/stories/:id/review", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewStory);
+router.patch("/stories/:id/approval", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewStory);
+router.post("/stories/:id/approval", validateParams(idParamSchema), validate(reviewDecisionSchema), handleReviewStory);
 
 // ==========================================
 // 4. CORRECTIONS REVIEW

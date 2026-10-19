@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middlewares/auth.middleware.js";
+import { requireAuth, requireVerifiedEmail } from "../middlewares/auth.middleware.js";
 import { validate, validateParams } from "../middlewares/validate.middleware.js";
 import { idParamSchema } from "../validators/common.schema.js";
 import { submitCorrectionSchema } from "../validators/correction.schema.js";
@@ -11,7 +11,7 @@ const router = Router();
  * POST /api/corrections
  * Submit a user correction for a heritage place
  */
-router.post("/", requireAuth, validate(submitCorrectionSchema), async (req, res, next) => {
+router.post("/", requireAuth, requireVerifiedEmail, validate(submitCorrectionSchema), async (req, res, next) => {
   try {
     const { placeId, description } = req.body;
     const correction = await correctionService.submitCorrection({

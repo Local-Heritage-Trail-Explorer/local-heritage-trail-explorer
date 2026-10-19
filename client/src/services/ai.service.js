@@ -16,6 +16,10 @@ export const aiService = {
     return await api.get("/chat/status");
   },
 
+  getChatHistory: async () => {
+    return await api.get("/chat/history");
+  },
+
   sendChatMessage: async ({ question, history = [] }) => {
     return await api.post("/chat", {
       question,

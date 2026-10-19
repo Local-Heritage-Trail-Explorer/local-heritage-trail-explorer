@@ -30,6 +30,26 @@ export const semanticSearchSchema = z.object({
     .optional(),
 });
 
+export const trailAgentGenerateSchema = z.object({
+  theme: z.string().trim().max(100, "Theme cannot exceed 100 characters").optional(),
+  maxMinutes: z
+    .coerce
+    .number()
+    .int("maxMinutes must be an integer")
+    .min(15, "Duration must be at least 15 minutes")
+    .max(720, "Duration cannot exceed 720 minutes (12 hours)")
+    .default(120)
+    .optional(),
+  preferredPlaceIds: z
+    .array(z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid preferredPlaceId format"))
+    .max(20, "Cannot specify more than 20 preferred places")
+    .optional(),
+  startZone: z.string().trim().max(100, "startZone cannot exceed 100 characters").optional(),
+  userPrompt: z.string().trim().max(1000, "userPrompt cannot exceed 1000 characters").optional(),
+  saveImmediately: z.boolean().default(false).optional(),
+});
+
 export default {
   semanticSearchSchema,
+  trailAgentGenerateSchema,
 };

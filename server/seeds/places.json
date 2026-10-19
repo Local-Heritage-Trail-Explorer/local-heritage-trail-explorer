@@ -1,0 +1,90 @@
+[
+  {
+    "_id": "660c00000000000000000001",
+    "name": "Sri Venkateswara Temple",
+    "description": "Ancient Vaishnavite temple atop the sacred Venkatadri hill of Seshachalam range, dedicated to Lord Venkateswara. Renowned for its Dravidian architectural heritage and historic gold-gilded Ananda Nilayam vimana.",
+    "zone": "Tirumala Hills",
+    "themes": ["sacred", "architecture", "history"],
+    "openingHours": { "open": "06:00", "close": "21:00" },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 45,
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000002",
+    "name": "Swami Pushkarini",
+    "description": "Sacred water tank situated on the northern side of Sri Venkateswara Temple. Historically revered as a divine reservoir whose waters were consecrated by Garuda according to the Brahmanda Purana.",
+    "zone": "Tirumala Hills",
+    "themes": ["sacred", "nature", "water"],
+    "openingHours": { "open": "06:00", "close": "20:00" },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 20,
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000003",
+    "name": "Sri Bedi Anjaneyaswami Temple",
+    "description": "Historic shrine dedicated to Lord Hanuman, situated directly opposite the Mahadwaram of Sri Venkateswara Temple. Features antique Chola-Vijayanagara masonry and unique chained iconography.",
+    "zone": "Tirumala Hills",
+    "themes": ["sacred", "architecture"],
+    "openingHours": { "open": "06:00", "close": "20:00" },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 20,
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000004",
+    "name": "Kapila Theertham",
+    "description": "The sole ancient Shaivite pilgrimage site situated at the base of the Seshachalam hills in Tirupati, nestled beneath a natural mountain waterfall where sage Kapila Maharishi meditated.",
+    "zone": "Tirupati Foothills",
+    "themes": ["sacred", "nature", "water"],
+    "openingHours": { "open": "06:00", "close": "19:00" },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 25,
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000005",
+    "name": "Chandragiri Fort & Palaces",
+    "description": "Prominent 11th-century fortification constructed by the Yadava Naidus, later serving as the fourth imperial capital of the Vijayanagara Empire. Preserves the Indo-Saracenic Raja Mahal and Rani Mahal.",
+    "zone": "Chandragiri",
+    "themes": ["architecture", "history", "monument"],
+    "openingHours": { "open": "08:00", "close": "17:30", "closedDays": ["friday"] },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 45,
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000006",
+    "name": "Sri Govindaraja Swamy Temple",
+    "description": "Vast Vaishnavite temple complex in the heart of Tirupati, consecrated by Saint Ramanujacharya in 1130 CE. Boasts an imposing seven-storey Raja Gopuram and intricate Vijayanagara mandapas.",
+    "zone": "Tirupati City",
+    "themes": ["sacred", "architecture", "history"],
+    "openingHours": { "open": "06:00", "close": "20:30" },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 35,
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000007",
+    "name": "Silathoranam (Natural Rock Arch)",
+    "description": "Rare geological monument dating back to the Pre-Cambrian era (1500 million years ago), formed by weathering and erosion in the Cuddapah Supergroup quartzites atop Tirumala hills.",
+    "zone": "Tirumala Hills",
+    "themes": ["nature", "geology", "monument"],
+    "openingHours": { "open": "06:00", "close": "18:00" },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 25,
+    "status": "approved"
+  },
+  {
+    "_id": "660c00000000000000000008",
+    "name": "Sri Varahaswami Temple",
+    "description": "Ancient temple on the banks of Swami Pushkarini, dedicated to Adi Varaha. According to centuries-old temple tradition and inscriptions, pilgrims visit Varahaswami before the main sanctum.",
+    "zone": "Tirumala Hills",
+    "themes": ["sacred", "history", "architecture"],
+    "openingHours": { "open": "06:00", "close": "20:30" },
+    "hoursVerification": "verified",
+    "estimatedVisitMinutes": 20,
+    "status": "approved"
+  }
+]

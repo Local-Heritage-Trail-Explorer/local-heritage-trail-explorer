@@ -114,6 +114,27 @@ export const publishApprovedRoute = async (trailId, guideId) => {
     throw new ApiError(404, "TRAIL_NOT_FOUND", "Trail not found.");
   }
 
+  // Prevent duplicate or invalid state transitions
+  if (trail.status === "published") {
+    throw new ApiError(400, "INVALID_STATE_TRANSITION", "Trail is already published.");
+  }
+
+  if (trail.status === "rejected") {
+    throw new ApiError(400, "INVALID_STATE_TRANSITION", "Cannot publish a rejected trail without re-submission.");
+  }
+
+  // Ownership & Consent Check (AUTH-003):
+  // A guide may publish their own route, OR a visitor's trail that has been explicitly submitted for review.
+  // Publishing an unsubmitted private trail belonging to another user without consent is forbidden.
+  const isOwner = trail.ownerId.toString() === guideId.toString();
+  if (!isOwner && trail.status !== "pending_review") {
+    throw new ApiError(
+      403,
+      "FORBIDDEN",
+      "Unauthorized publication. Cannot publish another user's private trail without submission consent."
+    );
+  }
+
   // Ensure all stops are approved heritage places
   if (!trail.stops || trail.stops.length === 0) {
     throw new ApiError(400, "INELIGIBLE_TRAIL", "Trail must contain at least one stop.");

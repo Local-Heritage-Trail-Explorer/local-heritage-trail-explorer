@@ -4,6 +4,7 @@ import { Source } from "../models/source.model.js";
 import { Correction } from "../models/correction.model.js";
 import { EditorialReview } from "../models/editorial-review.model.js";
 import { ApiError } from "../middlewares/error.middleware.js";
+import { DEFAULT_HERITAGE_PLACES } from "./trail-agent.service.js";
 
 /**
  * Get approved places for public browsing with optional theme filter and pagination
@@ -47,15 +48,43 @@ export const getApprovedPlaces = async ({ theme, page = 1, limit = 10 } = {}) =>
  * @returns {Promise<Object>}
  */
 export const getApprovedPlaceById = async (id) => {
-  const place = await Place.findOne({ _id: id, status: "approved" }).lean();
+  let place = null;
+  try {
+    place = await Place.findOne({ _id: id, status: "approved" }).lean();
+  } catch {
+    place = null;
+  }
+
+  // Gracefully resolve synthetic seed IDs to corresponding database landmark
+  if (!place) {
+    const defaultCandidate = DEFAULT_HERITAGE_PLACES.find(
+      (p) => p._id === id || p.id === id
+    );
+    if (defaultCandidate) {
+      const kw = defaultCandidate.name.split(" ")[0];
+      try {
+        place = await Place.findOne({
+          name: new RegExp(kw, "i"),
+          status: "approved",
+        }).lean();
+      } catch {
+        place = null;
+      }
+      if (!place) {
+        place = defaultCandidate;
+      }
+    }
+  }
+
   if (!place) {
     throw new ApiError(404, "PLACE_NOT_FOUND", "Place not found or not approved for public display.");
   }
 
   return {
-    id: place._id.toString(),
+    id: place._id?.toString() || place.id?.toString() || id,
+    _id: place._id?.toString() || place.id?.toString() || id,
     name: place.name,
-    description: place.description,
+    description: place.description || place.historicalSignificance,
     zone: place.zone,
     themes: place.themes,
     openingHours: place.openingHours,
@@ -71,9 +100,37 @@ export const getApprovedPlaceById = async (id) => {
  * @returns {Promise<Array>}
  */
 export const getApprovedPlaceStories = async (placeId) => {
-  const placeExists = await Place.exists({ _id: placeId, status: "approved" });
+  let resolvedId = placeId;
+  let placeExists = false;
+  try {
+    placeExists = await Place.exists({ _id: placeId, status: "approved" });
+  } catch {
+    placeExists = false;
+  }
+
   if (!placeExists) {
-    throw new ApiError(404, "PLACE_NOT_FOUND", "Place not found or not approved for public display.");
+    const defaultCandidate = DEFAULT_HERITAGE_PLACES.find(
+      (p) => p._id === placeId || p.id === placeId
+    );
+    if (defaultCandidate) {
+      const kw = defaultCandidate.name.split(" ")[0];
+      try {
+        const dbPlace = await Place.findOne({
+          name: new RegExp(kw, "i"),
+          status: "approved",
+        }).lean();
+        if (dbPlace) {
+          resolvedId = dbPlace._id.toString();
+          placeExists = true;
+        }
+      } catch {
+        placeExists = false;
+      }
+    }
+  }
+
+  if (!placeExists) {
+    return [];
   }
 
   const stories = await Story.find({ placeId, status: "approved" })
@@ -125,7 +182,32 @@ export const submitPlaceCorrection = async (
   { description, proposedCorrection, evidence },
   userId
 ) => {
-  const place = await Place.findById(placeId);
+  let resolvedId = placeId;
+  let place = null;
+  try {
+    place = await Place.findById(placeId);
+  } catch {
+    place = null;
+  }
+
+  if (!place) {
+    const defaultCandidate = DEFAULT_HERITAGE_PLACES.find(
+      (p) => p._id === placeId || p.id === placeId
+    );
+    if (defaultCandidate) {
+      const kw = defaultCandidate.name.split(" ")[0];
+      try {
+        place = await Place.findOne({
+          name: new RegExp(kw, "i"),
+          status: "approved",
+        });
+        if (place) resolvedId = place._id.toString();
+      } catch {
+        place = null;
+      }
+    }
+  }
+
   if (!place) {
     throw new ApiError(404, "PLACE_NOT_FOUND", "Referenced place does not exist.");
   }
@@ -140,7 +222,7 @@ export const submitPlaceCorrection = async (
     : desc.trim();
 
   const correction = await Correction.create({
-    placeId,
+    placeId: resolvedId,
     submittedBy: userId,
     description: fullDescription,
     status: "pending",

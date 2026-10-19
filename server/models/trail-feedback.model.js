@@ -26,5 +26,10 @@ const trailFeedbackSchema = new Schema(
   }
 );
 
+// Foreign key and status indexes for moderation and feedback queries
+trailFeedbackSchema.index({ trailId: 1, createdAt: -1 });
+trailFeedbackSchema.index({ status: 1, createdAt: -1 });
+trailFeedbackSchema.index({ submittedBy: 1, createdAt: -1 });
+
 export const TrailFeedback = model("TrailFeedback", trailFeedbackSchema);
 export default TrailFeedback;
